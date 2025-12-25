@@ -44,6 +44,14 @@ const preWeddingImages = [
   'https://images.unsplash.com/photo-1523912997327-a4a458f0a19c?w=800',
 ];
 
+// Google Drive folder IDs for each category
+// Just add the folder ID here and photos will be loaded automatically!
+const DRIVE_FOLDERS = {
+  'dugunden-once': '147X9FoyAczw0zvSe2vS7SuZLhr7VLate', // Düğünden Önce
+  'kina-gecesi': '', // Add folder ID when ready
+  'dugun': '', // Add folder ID when ready
+};
+
 export const categories: Category[] = [
   {
     id: 'dugunden-once',
@@ -51,9 +59,14 @@ export const categories: Category[] = [
     slug: 'dugunden-once',
     description: 'Hazırlıklar, gelin alayı ve özel anlar',
     date_range: '14-15 Temmuz 2025',
-    cover_image: preWeddingImages[0],
-    media_count: 156,
-    featured_thumbnails: preWeddingImages.slice(0, 3),
+    cover_image: 'https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w800',
+    media_count: 0, // Will be loaded dynamically from Drive
+    featured_thumbnails: [
+      'https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w400',
+      'https://drive.google.com/thumbnail?id=1gkd4oJPQTNBN0E7WdFO0cejMVS4eIyRI&sz=w400',
+      'https://drive.google.com/thumbnail?id=10YQQ7-JFOyv1Q8r_wOu-0bufjkWPUIhy&sz=w400',
+    ],
+    drive_folder_id: DRIVE_FOLDERS['dugunden-once'],
   },
   {
     id: 'kina-gecesi',
@@ -64,6 +77,7 @@ export const categories: Category[] = [
     cover_image: kinaImages[0],
     media_count: 89,
     featured_thumbnails: kinaImages.slice(0, 3),
+    drive_folder_id: DRIVE_FOLDERS['kina-gecesi'],
   },
   {
     id: 'dugun',
@@ -74,6 +88,7 @@ export const categories: Category[] = [
     cover_image: weddingImages[0],
     media_count: 312,
     featured_thumbnails: weddingImages.slice(0, 3),
+    drive_folder_id: DRIVE_FOLDERS['dugun'],
   },
 ];
 

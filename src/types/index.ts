@@ -35,6 +35,8 @@ export interface Category {
   cover_image: string;
   media_count: number;
   featured_thumbnails: string[];
+  // Google Drive folder ID for this category's photos
+  drive_folder_id?: string;
 }
 
 export interface Album {
