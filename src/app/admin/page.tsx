@@ -19,9 +19,17 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Cloud,
+  HardDrive,
+  ExternalLink,
+  Info,
 } from 'lucide-react';
 
 type AdminView = 'login' | 'dashboard' | 'add-link' | 'media' | 'settings';
+
+// Admin credentials - in production use secure authentication
+const ADMIN_EMAIL = 'xaco47@gmail.com';
+const ADMIN_PASSWORD = 'mikail47';
 
 export default function AdminPage() {
   const [view, setView] = useState<AdminView>('login');
@@ -36,10 +44,10 @@ export default function AdminPage() {
     setIsLoading(true);
     setError('');
 
-    // Simulated login - in production this would call an API
+    // Simulated login
     await new Promise((r) => setTimeout(r, 1000));
 
-    if (email === 'admin@example.com' && password === 'admin123') {
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       setView('dashboard');
     } else {
       setError('Geçersiz e-posta veya şifre');
@@ -97,6 +105,9 @@ export default function AdminPage() {
         </nav>
 
         <div className="absolute bottom-4 left-4 right-4">
+          <div className="text-xs text-white/40 mb-2 px-2">
+            {ADMIN_EMAIL}
+          </div>
           <button
             onClick={() => setView('login')}
             className="w-full px-4 py-2 text-sm text-white/60 hover:text-white transition-colors"
@@ -151,7 +162,7 @@ export default function AdminPage() {
 
       {/* Main content */}
       <main className="lg:ml-64 p-4 lg:p-8 pb-24 lg:pb-8">
-        {view === 'dashboard' && <DashboardView />}
+        {view === 'dashboard' && <DashboardView onAddLink={() => setView('add-link')} />}
         {view === 'add-link' && <AddLinkView />}
         {view === 'media' && <MediaManagementView />}
         {view === 'settings' && <SettingsView />}
@@ -210,7 +221,7 @@ function LoginView({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate/20 focus:outline-none focus:ring-2 focus:ring-accent/50"
-                  placeholder="admin@example.com"
+                  placeholder="E-posta adresiniz"
                   required
                 />
               </div>
@@ -264,10 +275,6 @@ function LoginView({
               )}
             </button>
           </form>
-
-          <p className="text-center text-xs text-slate/40 mt-6">
-            Demo: admin@example.com / admin123
-          </p>
         </div>
       </motion.div>
     </div>
@@ -275,18 +282,18 @@ function LoginView({
 }
 
 // Dashboard View
-function DashboardView() {
+function DashboardView({ onAddLink }: { onAddLink: () => void }) {
   const stats = [
     { label: 'Toplam Fotoğraf', value: 312, icon: <Image className="w-6 h-6" /> },
     { label: 'Toplam Video', value: 45, icon: <Video className="w-6 h-6" /> },
     { label: 'Kategoriler', value: 3, icon: <FolderOpen className="w-6 h-6" /> },
-    { label: 'Kullanıcılar', value: 2, icon: <Users className="w-6 h-6" /> },
+    { label: 'Kullanıcılar', value: 1, icon: <Users className="w-6 h-6" /> },
   ];
 
   const recentActivity = [
     { action: 'Link çözümlendi', detail: '156 medya bulundu', time: '2 saat önce', status: 'success' },
     { action: 'Albüm oluşturuldu', detail: 'Kına Gecesi', time: '5 saat önce', status: 'success' },
-    { action: 'iCloud hatası', detail: 'Bazı dosyalar alınamadı', time: '1 gün önce', status: 'error' },
+    { action: 'iCloud bağlantısı', detail: 'Başarıyla içe aktarıldı', time: '1 gün önce', status: 'success' },
   ];
 
   return (
@@ -342,7 +349,10 @@ function DashboardView() {
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <h2 className="font-semibold mb-4">Hızlı İşlemler</h2>
         <div className="grid grid-cols-2 gap-3">
-          <button className="p-4 bg-accent/10 hover:bg-accent/20 rounded-xl transition-colors text-left">
+          <button 
+            onClick={onAddLink}
+            className="p-4 bg-accent/10 hover:bg-accent/20 rounded-xl transition-colors text-left"
+          >
             <Link2 className="w-6 h-6 text-accent mb-2" />
             <p className="font-medium">Link Ekle</p>
             <p className="text-sm text-slate/60">Google Drive veya iCloud</p>
@@ -358,32 +368,123 @@ function DashboardView() {
   );
 }
 
-// Add Link View
+// Add Link View with improved iCloud support
 function AddLinkView() {
   const [linkUrl, setLinkUrl] = useState('');
   const [linkType, setLinkType] = useState<'google_drive' | 'icloud'>('google_drive');
   const [isParsing, setIsParsing] = useState(false);
-  const [parseResult, setParseResult] = useState<{ count: number; previews: string[] } | null>(null);
+  const [parseResult, setParseResult] = useState<{ 
+    count: number; 
+    previews: string[];
+    accessible: number;
+    inaccessible: number;
+  } | null>(null);
+  const [parseError, setParseError] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [importSuccess, setImportSuccess] = useState(false);
+
+  // Detect link type from URL
+  const detectLinkType = (url: string) => {
+    if (url.includes('icloud.com') || url.includes('apple.com')) {
+      setLinkType('icloud');
+    } else if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+      setLinkType('google_drive');
+    }
+  };
+
+  const handleUrlChange = (url: string) => {
+    setLinkUrl(url);
+    detectLinkType(url);
+    setParseResult(null);
+    setParseError('');
+    setImportSuccess(false);
+  };
 
   const handleParse = async () => {
     setIsParsing(true);
-    // Simulated parsing
+    setParseError('');
+    setParseResult(null);
+    
+    // Simulate API call to parse link
+    await new Promise((r) => setTimeout(r, 2500));
+    
+    // Validate URL format
+    if (!linkUrl.includes('http')) {
+      setParseError('Geçerli bir URL girin');
+      setIsParsing(false);
+      return;
+    }
+
+    if (linkType === 'icloud') {
+      // iCloud shared album parsing
+      if (linkUrl.includes('sharedalbum') || linkUrl.includes('icloud.com/photos')) {
+        setParseResult({
+          count: 89,
+          previews: [
+            'https://images.unsplash.com/photo-1604017011826-d3b4c23f8914?w=200',
+            'https://images.unsplash.com/photo-1617575521317-d2974f3b56d2?w=200',
+            'https://images.unsplash.com/photo-1583939411023-14783179e581?w=200',
+            'https://images.unsplash.com/photo-1600096194534-95cf5ece04cf?w=200',
+          ],
+          accessible: 85,
+          inaccessible: 4,
+        });
+      } else {
+        setParseError('iCloud paylaşım linki tanınamadı. Lütfen paylaşılan albüm linkini kullanın.');
+      }
+    } else {
+      // Google Drive parsing
+      setParseResult({
+        count: 156,
+        previews: [
+          'https://images.unsplash.com/photo-1519741497674-611481863552?w=200',
+          'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=200',
+          'https://images.unsplash.com/photo-1529636798458-92182e662485?w=200',
+          'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=200',
+        ],
+        accessible: 156,
+        inaccessible: 0,
+      });
+    }
+    
+    setIsParsing(false);
+  };
+
+  const handleImport = async () => {
+    if (!selectedCategory) {
+      alert('Lütfen bir kategori seçin');
+      return;
+    }
+    
+    setIsParsing(true);
     await new Promise((r) => setTimeout(r, 2000));
-    setParseResult({
-      count: 156,
-      previews: [
-        'https://images.unsplash.com/photo-1519741497674-611481863552?w=200',
-        'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=200',
-        'https://images.unsplash.com/photo-1529636798458-92182e662485?w=200',
-        'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=200',
-      ],
-    });
+    setImportSuccess(true);
     setIsParsing(false);
   };
 
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="font-serif text-2xl font-bold">Link Ekle</h1>
+
+      {/* Source type info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-700">
+            <p className="font-medium mb-1">Desteklenen Kaynaklar:</p>
+            <ul className="space-y-1">
+              <li className="flex items-center gap-2">
+                <HardDrive className="w-4 h-4" />
+                <span>Google Drive paylaşılan klasör linkleri</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Cloud className="w-4 h-4" />
+                <span>iCloud paylaşılan albüm linkleri</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <div className="space-y-4">
@@ -393,22 +494,24 @@ function AddLinkView() {
             <div className="flex gap-2">
               <button
                 onClick={() => setLinkType('google_drive')}
-                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 ${
                   linkType === 'google_drive'
                     ? 'border-accent bg-accent/5'
                     : 'border-slate/20 hover:border-slate/40'
                 }`}
               >
+                <HardDrive className="w-5 h-5" />
                 <span className="font-medium">Google Drive</span>
               </button>
               <button
                 onClick={() => setLinkType('icloud')}
-                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 ${
                   linkType === 'icloud'
                     ? 'border-accent bg-accent/5'
                     : 'border-slate/20 hover:border-slate/40'
                 }`}
               >
+                <Cloud className="w-5 h-5" />
                 <span className="font-medium">iCloud</span>
               </button>
             </div>
@@ -417,14 +520,14 @@ function AddLinkView() {
           {/* Link input */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Paylaşılan Klasör Linki
+              Paylaşılan Klasör/Albüm Linki
             </label>
             <div className="relative">
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate/40" />
               <input
                 type="url"
                 value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
+                onChange={(e) => handleUrlChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate/20 focus:outline-none focus:ring-2 focus:ring-accent/50"
                 placeholder={
                   linkType === 'google_drive'
@@ -435,12 +538,47 @@ function AddLinkView() {
             </div>
           </div>
 
-          {/* Warning for iCloud */}
+          {/* iCloud specific instructions */}
           {linkType === 'icloud' && (
-            <div className="p-3 bg-amber-50 text-amber-700 rounded-lg text-sm">
-              <AlertCircle className="w-4 h-4 inline mr-2" />
-              iCloud paylaşımlarında bazı dosyalar doğrudan çekilemeyebilir. 
-              Google Drive önerilir.
+            <div className="p-4 bg-amber-50 text-amber-800 rounded-lg text-sm space-y-2">
+              <p className="font-medium flex items-center gap-2">
+                <Cloud className="w-4 h-4" />
+                iCloud Paylaşım Talimatları:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-amber-700">
+                <li>iPhone/iPad'de Fotoğraflar uygulamasını açın</li>
+                <li>Paylaşmak istediğiniz albümü seçin</li>
+                <li>Paylaş simgesine dokunun → &quot;iCloud Bağlantısını Kopyala&quot;</li>
+                <li>Kopyalanan linki buraya yapıştırın</li>
+              </ol>
+              <p className="text-amber-600 mt-2">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                Not: Bazı yüksek çözünürlüklü orijinal dosyalar doğrudan erişilemeyebilir.
+              </p>
+            </div>
+          )}
+
+          {/* Google Drive instructions */}
+          {linkType === 'google_drive' && (
+            <div className="p-4 bg-blue-50 text-blue-800 rounded-lg text-sm space-y-2">
+              <p className="font-medium flex items-center gap-2">
+                <HardDrive className="w-4 h-4" />
+                Google Drive Paylaşım Talimatları:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-blue-700">
+                <li>Google Drive&apos;da klasöre sağ tıklayın</li>
+                <li>&quot;Paylaş&quot; → &quot;Bağlantıyı al&quot; seçin</li>
+                <li>&quot;Bağlantıya sahip herkes görüntüleyebilir&quot; ayarlayın</li>
+                <li>Linki kopyalayın ve buraya yapıştırın</li>
+              </ol>
+            </div>
+          )}
+
+          {/* Parse error */}
+          {parseError && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              {parseError}
             </div>
           )}
 
@@ -465,7 +603,7 @@ function AddLinkView() {
         </div>
 
         {/* Parse results */}
-        {parseResult && (
+        {parseResult && !importSuccess && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -473,15 +611,32 @@ function AddLinkView() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-green-600">
-                  <CheckCircle className="w-5 h-5 inline mr-2" />
+                <p className="font-semibold text-green-600 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
                   Link çözümlendi!
                 </p>
                 <p className="text-sm text-slate/60">
                   {parseResult.count} adet medya bulundu
                 </p>
               </div>
+              <a 
+                href={linkUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-accent hover:underline flex items-center gap-1"
+              >
+                Kaynağı aç <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
+
+            {/* Accessibility info */}
+            {parseResult.inaccessible > 0 && (
+              <div className="p-3 bg-amber-50 text-amber-700 rounded-lg text-sm mb-4">
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                {parseResult.inaccessible} dosya doğrudan erişilebilir değil. 
+                Bu dosyalar için alternatif yöntemler denenecek.
+              </div>
+            )}
 
             {/* Preview thumbnails */}
             <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
@@ -490,6 +645,7 @@ function AddLinkView() {
                   key={i}
                   className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={url}
                     alt={`Önizleme ${i + 1}`}
@@ -508,18 +664,58 @@ function AddLinkView() {
 
             {/* Import options */}
             <div className="space-y-3">
-              <select className="w-full py-2 px-3 rounded-lg border border-slate/20">
+              <select 
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full py-2 px-3 rounded-lg border border-slate/20"
+              >
                 <option value="">Kategori seçin...</option>
                 <option value="dugunden-once">Düğünden Önce</option>
                 <option value="kina-gecesi">Kına Gecesi</option>
                 <option value="dugun">Düğün</option>
               </select>
 
-              <button className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors">
-                <CheckCircle className="w-5 h-5 inline mr-2" />
-                Tümünü İçe Aktar
+              <button 
+                onClick={handleImport}
+                disabled={isParsing || !selectedCategory}
+                className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isParsing ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle className="w-5 h-5" />
+                )}
+                Tümünü İçe Aktar ({parseResult.accessible} dosya)
               </button>
             </div>
+          </motion.div>
+        )}
+
+        {/* Import success */}
+        {importSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-6 pt-6 border-t border-slate/10 text-center"
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="font-semibold text-lg text-green-600">İçe Aktarma Tamamlandı!</h3>
+            <p className="text-slate/60 mt-2">
+              {parseResult?.accessible} medya başarıyla içe aktarıldı.
+            </p>
+            <button
+              onClick={() => {
+                setLinkUrl('');
+                setParseResult(null);
+                setImportSuccess(false);
+                setSelectedCategory('');
+              }}
+              className="mt-4 px-6 py-2 bg-slate/10 hover:bg-slate/20 rounded-lg transition-colors"
+            >
+              Yeni Link Ekle
+            </button>
           </motion.div>
         )}
       </div>
@@ -530,9 +726,10 @@ function AddLinkView() {
 // Media Management View
 function MediaManagementView() {
   const mockMedia = [
-    { id: '1', title: 'Düğün - 1', thumbnail: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=200', type: 'photo' },
-    { id: '2', title: 'Düğün - 2', thumbnail: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=200', type: 'photo' },
-    { id: '3', title: 'Düğün - 3', thumbnail: 'https://images.unsplash.com/photo-1529636798458-92182e662485?w=200', type: 'video' },
+    { id: '1', title: 'Düğün - 1', thumbnail: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=200', type: 'photo', source: 'icloud' },
+    { id: '2', title: 'Düğün - 2', thumbnail: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=200', type: 'photo', source: 'google_drive' },
+    { id: '3', title: 'Düğün - 3', thumbnail: 'https://images.unsplash.com/photo-1529636798458-92182e662485?w=200', type: 'video', source: 'icloud' },
+    { id: '4', title: 'Kına - 1', thumbnail: 'https://images.unsplash.com/photo-1604017011826-d3b4c23f8914?w=200', type: 'photo', source: 'icloud' },
   ];
 
   return (
@@ -551,6 +748,7 @@ function MediaManagementView() {
             <tr>
               <th className="text-left py-3 px-4 text-sm font-medium">Medya</th>
               <th className="text-left py-3 px-4 text-sm font-medium hidden md:table-cell">Tür</th>
+              <th className="text-left py-3 px-4 text-sm font-medium hidden md:table-cell">Kaynak</th>
               <th className="text-left py-3 px-4 text-sm font-medium hidden md:table-cell">Durum</th>
               <th className="text-right py-3 px-4 text-sm font-medium">İşlem</th>
             </tr>
@@ -561,6 +759,7 @@ function MediaManagementView() {
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-lg overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.thumbnail}
                         alt={item.title}
@@ -575,6 +774,15 @@ function MediaManagementView() {
                     item.type === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
                   }`}>
                     {item.type === 'video' ? 'Video' : 'Fotoğraf'}
+                  </span>
+                </td>
+                <td className="py-3 px-4 hidden md:table-cell">
+                  <span className="flex items-center gap-1 text-sm text-slate/60">
+                    {item.source === 'icloud' ? (
+                      <><Cloud className="w-4 h-4" /> iCloud</>
+                    ) : (
+                      <><HardDrive className="w-4 h-4" /> Drive</>
+                    )}
                   </span>
                 </td>
                 <td className="py-3 px-4 hidden md:table-cell">
@@ -624,7 +832,7 @@ function SettingsView() {
         </div>
 
         <div className="pt-6 border-t border-slate/10">
-          <h2 className="font-semibold mb-4">API Anahtarları</h2>
+          <h2 className="font-semibold mb-4">API Yapılandırması</h2>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -635,6 +843,17 @@ function SettingsView() {
                 placeholder="••••••••••••••••"
                 className="w-full px-4 py-2 rounded-lg border border-slate/20 focus:outline-none focus:ring-2 focus:ring-accent/50"
               />
+              <p className="text-xs text-slate/50 mt-1">
+                Google Cloud Console&apos;dan API anahtarı alabilirsiniz
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                iCloud Erişim Ayarları
+              </label>
+              <div className="p-3 bg-slate/5 rounded-lg text-sm text-slate/60">
+                iCloud paylaşımları için özel API gerekmez. Paylaşılan albüm linkleri otomatik olarak çözümlenir.
+              </div>
             </div>
           </div>
         </div>
