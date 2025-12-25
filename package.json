@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "NEXT_PUBLIC_REPO_NAME=wedding-archive next build && cp public/.nojekyll out/",
+    "build": "NEXT_PUBLIC_REPO_NAME=Resimler next build && cp public/.nojekyll out/",
     "build:local": "next build",
     "start": "next start",
     "lint": "eslint"

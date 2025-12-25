@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NEXT_PUBLIC_REPO_NAME: wedding-archive
+  NEXT_PUBLIC_REPO_NAME: Resimler
 
 jobs:
   build:
