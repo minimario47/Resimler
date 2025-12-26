@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Download, ExternalLink, RefreshCw, FolderOpen } from 'lucide-react';
-import { getDriveUrls, DRIVE_FOLDERS } from '@/lib/google-drive';
-import Lightbox from './Lightbox';
-import { MediaItem } from '@/types';
+import { RefreshCw, FolderOpen, ExternalLink } from 'lucide-react';
+import { getDriveUrls } from '@/lib/google-drive';
+import MediaGrid from './MediaGrid';
+import GridControls from './GridControls';
+import { MediaItem, GridSize, SortOption } from '@/types';
 
 interface DriveImage {
   id: string;
@@ -23,7 +23,8 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
   const [images, setImages] = useState<DriveImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [gridSize, setGridSize] = useState<GridSize>('normal');
+  const [sortOption, setSortOption] = useState<SortOption>('chronological');
 
   const fetchImages = useCallback(async () => {
     if (!folderId) {
@@ -99,21 +100,29 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
     return images;
   }
 
-  // Convert Drive images to MediaItem format for Lightbox
+  // Convert Drive images to MediaItem format for MediaGrid
   const mediaItems: MediaItem[] = images.map((img, index) => {
     const urls = getDriveUrls(img.id);
+    // Use different aspect ratios for visual variety (like the mock data)
+    const heights = [1080, 1280, 1440, 1600];
+    const randomHeight = heights[index % heights.length];
+    
     return {
       id: img.id,
       title: img.name.replace(/\.[^.]+$/, ''), // Remove extension
       description: `${categoryName} - Fotoğraf ${index + 1}`,
       media_type: 'photo',
-      created_at: new Date().toISOString(),
+      created_at: '2025-07-15', // Use a fixed date for the category
       source: 'google_drive',
       source_url: urls.view,
-      thumbnails: urls.thumbnail,
-      original_url: urls.embed,
+      thumbnails: {
+        small: urls.thumbnail.small,
+        medium: urls.thumbnail.medium,
+        large: urls.thumbnail.large,
+      },
+      original_url: urls.download, // Use download URL for full quality
       width: 1920,
-      height: 1280,
+      height: randomHeight,
       tags: [categoryId],
       is_public: true,
       featured: index < 3,
@@ -121,6 +130,14 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
       category_id: categoryId,
     };
   });
+
+  // Apply sorting
+  const sortedMedia = [...mediaItems];
+  if (sortOption === 'reverse') {
+    sortedMedia.reverse();
+  } else if (sortOption === 'featured') {
+    sortedMedia.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+  }
 
   if (loading) {
     return (
@@ -199,90 +216,23 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
 
   return (
     <>
-      {/* Image count and actions */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-slate/60">
-          <span className="font-medium text-slate">{images.length}</span> fotoğraf
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchImages}
-            className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors"
-            title="Yenile"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <a
-            href={`https://drive.google.com/drive/folders/${folderId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors"
-            title="Google Drive'da Aç"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
-      </div>
+      {/* Grid controls - same as static gallery */}
+      <GridControls
+        gridSize={gridSize}
+        onGridSizeChange={setGridSize}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        mediaType="all"
+        onMediaTypeChange={() => {}}
+        photoCount={images.length}
+        hideMediaTypeFilter
+        showRefresh
+        onRefresh={fetchImages}
+        driveFolderId={folderId}
+      />
 
-      {/* Image grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-        {images.map((image, index) => (
-          <motion.div
-            key={image.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(index * 0.03, 0.5) }}
-          >
-            <div
-              onClick={() => setSelectedIndex(index)}
-              className="relative group cursor-pointer rounded-lg overflow-hidden bg-slate/5 aspect-square"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && setSelectedIndex(index)}
-              aria-label={`${image.name} görüntüle`}
-            >
-              {/* Thumbnail */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image.thumbnailUrl}
-                alt={image.name}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                loading="lazy"
-              />
-
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <div className="flex gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(getDriveUrls(image.id).download, '_blank');
-                    }}
-                    className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
-                    title="İndir"
-                  >
-                    <Download className="w-4 h-4 text-slate" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Image number badge */}
-              <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded text-white text-xs">
-                {index + 1}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Lightbox */}
-      {selectedIndex !== null && mediaItems.length > 0 && (
-        <Lightbox
-          media={mediaItems}
-          initialIndex={selectedIndex}
-          onClose={() => setSelectedIndex(null)}
-        />
-      )}
+      {/* Use MediaGrid component - same as static gallery */}
+      <MediaGrid media={sortedMedia} gridSize={gridSize} />
     </>
   );
 }

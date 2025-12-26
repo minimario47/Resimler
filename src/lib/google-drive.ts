@@ -21,12 +21,12 @@ export function getDriveUrls(fileId: string) {
     thumbnail: {
       small: `https://drive.google.com/thumbnail?id=${fileId}&sz=w200`,
       medium: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
-      large: `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+      large: `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
     },
     // Direct view/download URLs
     view: `https://drive.google.com/file/d/${fileId}/view`,
     download: `https://drive.google.com/uc?export=download&id=${fileId}`,
-    // Embed URL for displaying
+    // Embed URL for displaying (full quality)
     embed: `https://drive.google.com/uc?export=view&id=${fileId}`,
   };
 }

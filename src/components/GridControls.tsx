@@ -1,6 +1,6 @@
 'use client';
 
-import { Grid3X3, Grid2X2, Square, SortAsc } from 'lucide-react';
+import { Grid3X3, Grid2X2, Square, SortAsc, RefreshCw, ExternalLink, Camera } from 'lucide-react';
 import { GridSize, SortOption } from '@/types';
 
 interface GridControlsProps {
@@ -10,6 +10,12 @@ interface GridControlsProps {
   onSortChange: (sort: SortOption) => void;
   mediaType: 'all' | 'photo' | 'video';
   onMediaTypeChange: (type: 'all' | 'photo' | 'video') => void;
+  // Optional props for Drive gallery
+  photoCount?: number;
+  hideMediaTypeFilter?: boolean;
+  showRefresh?: boolean;
+  onRefresh?: () => void;
+  driveFolderId?: string;
 }
 
 export default function GridControls({
@@ -19,45 +25,85 @@ export default function GridControls({
   onSortChange,
   mediaType,
   onMediaTypeChange,
+  photoCount,
+  hideMediaTypeFilter,
+  showRefresh,
+  onRefresh,
+  driveFolderId,
 }: GridControlsProps) {
   return (
     <div className="sticky top-14 md:top-16 z-30 bg-cream/95 backdrop-blur-md border-b border-slate/10 py-3 px-4">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-4">
-        {/* Filter pills */}
+        {/* Left side: Filter pills or photo count */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => onMediaTypeChange('all')}
-            className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
-              mediaType === 'all'
-                ? 'bg-slate text-cream'
-                : 'bg-slate/10 hover:bg-slate/20'
-            }`}
-          >
-            Tümü
-          </button>
-          <button
-            onClick={() => onMediaTypeChange('photo')}
-            className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
-              mediaType === 'photo'
-                ? 'bg-slate text-cream'
-                : 'bg-slate/10 hover:bg-slate/20'
-            }`}
-          >
-            Fotoğraflar
-          </button>
-          <button
-            onClick={() => onMediaTypeChange('video')}
-            className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
-              mediaType === 'video'
-                ? 'bg-slate text-cream'
-                : 'bg-slate/10 hover:bg-slate/20'
-            }`}
-          >
-            Videolar
-          </button>
+          {hideMediaTypeFilter ? (
+            // Show photo count for Drive gallery
+            <div className="flex items-center gap-2 text-slate/60">
+              <Camera className="w-4 h-4" />
+              <span className="text-sm">
+                <span className="font-medium text-slate">{photoCount}</span> fotoğraf
+              </span>
+            </div>
+          ) : (
+            // Show filter buttons for static gallery
+            <>
+              <button
+                onClick={() => onMediaTypeChange('all')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                  mediaType === 'all'
+                    ? 'bg-slate text-cream'
+                    : 'bg-slate/10 hover:bg-slate/20'
+                }`}
+              >
+                Tümü
+              </button>
+              <button
+                onClick={() => onMediaTypeChange('photo')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                  mediaType === 'photo'
+                    ? 'bg-slate text-cream'
+                    : 'bg-slate/10 hover:bg-slate/20'
+                }`}
+              >
+                Fotoğraflar
+              </button>
+              <button
+                onClick={() => onMediaTypeChange('video')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                  mediaType === 'video'
+                    ? 'bg-slate text-cream'
+                    : 'bg-slate/10 hover:bg-slate/20'
+                }`}
+              >
+                Videolar
+              </button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Drive-specific actions */}
+          {showRefresh && (
+            <button
+              onClick={onRefresh}
+              className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors"
+              title="Yenile"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
+          {driveFolderId && (
+            <a
+              href={`https://drive.google.com/drive/folders/${driveFolderId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors"
+              title="Google Drive'da Aç"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+
           {/* Sort dropdown */}
           <div className="relative">
             <select
