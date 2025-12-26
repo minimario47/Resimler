@@ -1,4 +1,4 @@
-import { categories, getMediaByCategory, getCategoryBySlug } from '@/data/mock-data';
+import { categories, getCategoryBySlug } from '@/data/mock-data';
 import CategoryClient from './CategoryClient';
 import Header from '@/components/Header';
 
@@ -22,9 +22,7 @@ export default async function CategoryPage({ params }: PageProps) {
     );
   }
 
-  const media = getMediaByCategory(category.id);
-
-  return <CategoryClient category={category} media={media} />;
+  return <CategoryClient category={category} />;
 }
 
 // Generate static params for GitHub Pages

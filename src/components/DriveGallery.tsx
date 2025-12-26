@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, FolderOpen, ExternalLink } from 'lucide-react';
 import { getDriveUrls } from '@/lib/google-drive';
 import MediaGrid from './MediaGrid';
@@ -17,102 +17,142 @@ interface DriveGalleryProps {
   folderId: string;
   categoryId: string;
   categoryName: string;
+  categoryDate?: string;
 }
 
-export default function DriveGallery({ folderId, categoryId, categoryName }: DriveGalleryProps) {
-  const [images, setImages] = useState<DriveImage[]>([]);
-  const [loading, setLoading] = useState(true);
+// Simple cache to avoid refetching on component remount
+const imageCache: Record<string, DriveImage[]> = {};
+
+export default function DriveGallery({ folderId, categoryId, categoryName, categoryDate = '2024-12-25' }: DriveGalleryProps) {
+  const [images, setImages] = useState<DriveImage[]>(imageCache[folderId] || []);
+  const [loading, setLoading] = useState(!imageCache[folderId]);
   const [error, setError] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState<GridSize>('normal');
   const [sortOption, setSortOption] = useState<SortOption>('chronological');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchedRef = useRef(false);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (forceRefresh = false) => {
     if (!folderId) {
       setLoading(false);
       setError('Bu kategori için henüz fotoğraf eklenmemiş.');
       return;
     }
 
-    setLoading(true);
+    // Use cache if available and not forcing refresh
+    if (!forceRefresh && imageCache[folderId] && imageCache[folderId].length > 0) {
+      setImages(imageCache[folderId]);
+      setLoading(false);
+      return;
+    }
+
+    if (forceRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      // Fetch the embedded folder view
-      const response = await fetch(`/api/drive-proxy?folderId=${folderId}`);
-      
-      if (!response.ok) {
-        // Fallback: try to parse from a proxy or use direct embed
-        throw new Error('API not available');
+      // Try multiple proxies for reliability
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
+        `https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
+      ];
+
+      let html = '';
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, { 
+            cache: forceRefresh ? 'no-cache' : 'default' 
+          });
+          if (response.ok) {
+            html = await response.text();
+            break;
+          }
+        } catch {
+          continue;
+        }
       }
+
+      if (!html) {
+        throw new Error('All proxies failed');
+      }
+
+      // Parse images from HTML
+      const extractedImages = parseImagesFromHtml(html);
       
-      const data = await response.json();
-      setImages(data.files || []);
-    } catch {
-      // Fallback: Use a simple approach - fetch via CORS proxy or show embed
-      try {
-        // Try fetching directly (may work in some cases)
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-          `https://drive.google.com/embeddedfolderview?id=${folderId}`
-        )}`;
-        
-        const response = await fetch(proxyUrl);
-        const html = await response.text();
-        
-        // Parse the HTML to extract image IDs
-        const extractedImages = parseImagesFromHtml(html);
-        setImages(extractedImages);
-      } catch (proxyError) {
-        console.error('Proxy fetch failed:', proxyError);
-        // Final fallback: show iframe embed
+      // Update cache and state
+      imageCache[folderId] = extractedImages;
+      setImages(extractedImages);
+      
+    } catch (proxyError) {
+      console.error('Fetch failed:', proxyError);
+      // Show fallback embed if no cached data
+      if (!imageCache[folderId] || imageCache[folderId].length === 0) {
         setError('embed');
       }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [folderId]);
-
-  useEffect(() => {
-    fetchImages();
-  }, [fetchImages]);
 
   // Parse images from embedded folder HTML
   function parseImagesFromHtml(html: string): DriveImage[] {
     const images: DriveImage[] = [];
     
-    // Match file entries
-    const entryRegex = /id="entry-([a-zA-Z0-9_-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;
-    let match;
+    // Multiple regex patterns for different Drive HTML formats
+    const patterns = [
+      /id="entry-([a-zA-Z0-9_-]+)"[\s\S]*?flip-entry-title">([^<]+)</g,
+      /data-id="([a-zA-Z0-9_-]+)"[\s\S]*?title="([^"]+)"/g,
+      /"([a-zA-Z0-9_-]{25,})"[\s\S]*?"([^"]*\.(jpg|jpeg|png|gif|webp|heic))"/gi,
+    ];
     
-    while ((match = entryRegex.exec(html)) !== null) {
-      const fileId = match[1];
-      const fileName = match[2];
-      
-      // Only include image files
-      if (/\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName)) {
-        images.push({
-          id: fileId,
-          name: fileName,
-          thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
-        });
+    for (const regex of patterns) {
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        const fileId = match[1];
+        const fileName = match[2];
+        
+        // Validate file ID length and only include image files
+        if (fileId.length > 20 && /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName)) {
+          // Avoid duplicates
+          if (!images.find(img => img.id === fileId)) {
+            images.push({
+              id: fileId,
+              name: fileName,
+              thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
+            });
+          }
+        }
       }
     }
     
     return images;
   }
 
+  // Initial fetch
+  useEffect(() => {
+    if (!fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchImages();
+    }
+  }, [fetchImages]);
+
   // Convert Drive images to MediaItem format for MediaGrid
   const mediaItems: MediaItem[] = images.map((img, index) => {
     const urls = getDriveUrls(img.id);
-    // Use different aspect ratios for visual variety (like the mock data)
-    const heights = [1080, 1280, 1440, 1600];
+    // Use different aspect ratios for visual variety
+    const heights = [1080, 1280, 1440, 1600, 1200];
     const randomHeight = heights[index % heights.length];
     
     return {
       id: img.id,
-      title: img.name.replace(/\.[^.]+$/, ''), // Remove extension
-      description: `${categoryName} - Fotoğraf ${index + 1}`,
+      title: img.name.replace(/\.[^.]+$/, ''),
+      description: `${categoryName}`,
       media_type: 'photo',
-      created_at: '2025-07-15', // Use a fixed date for the category
+      created_at: categoryDate,
       source: 'google_drive',
       source_url: urls.view,
       thumbnails: {
@@ -120,7 +160,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
         medium: urls.thumbnail.medium,
         large: urls.thumbnail.large,
       },
-      original_url: urls.download, // Use download URL for full quality
+      original_url: urls.download,
       width: 1920,
       height: randomHeight,
       tags: [categoryId],
@@ -204,7 +244,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
         <FolderOpen className="w-12 h-12 text-slate/30 mx-auto mb-4" />
         <p className="text-slate/60">Bu klasörde henüz fotoğraf yok.</p>
         <button
-          onClick={fetchImages}
+          onClick={() => fetchImages(true)}
           className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate/10 rounded-lg hover:bg-slate/20 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
@@ -216,7 +256,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
 
   return (
     <>
-      {/* Grid controls - same as static gallery */}
+      {/* Grid controls */}
       <GridControls
         gridSize={gridSize}
         onGridSizeChange={setGridSize}
@@ -227,47 +267,13 @@ export default function DriveGallery({ folderId, categoryId, categoryName }: Dri
         photoCount={images.length}
         hideMediaTypeFilter
         showRefresh
-        onRefresh={fetchImages}
+        onRefresh={() => fetchImages(true)}
+        isRefreshing={isRefreshing}
         driveFolderId={folderId}
       />
 
-      {/* Use MediaGrid component - same as static gallery */}
+      {/* Photo grid */}
       <MediaGrid media={sortedMedia} gridSize={gridSize} />
     </>
-  );
-}
-
-// Export a simple component for embedding folder directly
-export function DriveEmbed({ folderId, title }: { folderId: string; title: string }) {
-  if (!folderId) {
-    return (
-      <div className="text-center py-10 text-slate/60">
-        Klasör ID belirtilmemiş.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl overflow-hidden border border-slate/10">
-        <iframe
-          src={`https://drive.google.com/embeddedfolderview?id=${folderId}#grid`}
-          className="w-full h-[500px] md:h-[700px]"
-          style={{ border: 0 }}
-          title={title}
-        />
-      </div>
-      <div className="text-center">
-        <a
-          href={`https://drive.google.com/drive/folders/${folderId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Tüm fotoğrafları Google Drive&apos;da görüntüle
-        </a>
-      </div>
-    </div>
   );
 }

@@ -15,6 +15,7 @@ interface GridControlsProps {
   hideMediaTypeFilter?: boolean;
   showRefresh?: boolean;
   onRefresh?: () => void;
+  isRefreshing?: boolean;
   driveFolderId?: string;
 }
 
@@ -29,6 +30,7 @@ export default function GridControls({
   hideMediaTypeFilter,
   showRefresh,
   onRefresh,
+  isRefreshing,
   driveFolderId,
 }: GridControlsProps) {
   return (
@@ -86,10 +88,11 @@ export default function GridControls({
           {showRefresh && (
             <button
               onClick={onRefresh}
-              className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors"
+              disabled={isRefreshing}
+              className="p-2 rounded-lg bg-slate/10 hover:bg-slate/20 transition-colors disabled:opacity-50"
               title="Yenile"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
           )}
           {driveFolderId && (

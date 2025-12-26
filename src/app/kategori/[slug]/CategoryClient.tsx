@@ -1,50 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
 import Header from '@/components/Header';
-import MediaGrid from '@/components/MediaGrid';
-import GridControls from '@/components/GridControls';
 import DriveGallery from '@/components/DriveGallery';
 import Footer from '@/components/Footer';
-import { Category, MediaItem, GridSize, SortOption } from '@/types';
-import { Camera, Video, ExternalLink } from 'lucide-react';
+import { Category } from '@/types';
 
 interface CategoryClientProps {
   category: Category;
-  media: MediaItem[];
 }
 
-export default function CategoryClient({ category, media }: CategoryClientProps) {
-  const [gridSize, setGridSize] = useState<GridSize>('normal');
-  const [sortOption, setSortOption] = useState<SortOption>('chronological');
-  const [mediaType, setMediaType] = useState<'all' | 'photo' | 'video'>('all');
-
-  // Check if this category uses Google Drive
-  const usesDrive = !!category.drive_folder_id;
-
-  const filteredMedia = useMemo(() => {
-    let result = [...media];
-
-    // Filter by media type
-    if (mediaType !== 'all') {
-      result = result.filter((m) => m.media_type === mediaType);
-    }
-
-    // Sort
-    switch (sortOption) {
-      case 'reverse':
-        result.reverse();
-        break;
-      case 'featured':
-        result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
-        break;
-    }
-
-    return result;
-  }, [media, mediaType, sortOption]);
-
-  const photoCount = media.filter((m) => m.media_type === 'photo').length;
-  const videoCount = media.filter((m) => m.media_type === 'video').length;
+export default function CategoryClient({ category }: CategoryClientProps) {
+  // Extract date from date_range for the photos
+  const categoryDate = category.date_range.includes('24') ? '2024-12-24' :
+                       category.date_range.includes('25') ? '2024-12-25' :
+                       category.date_range.includes('26') ? '2024-12-26' :
+                       category.date_range.includes('27') ? '2024-12-27' : '2024-12-25';
 
   return (
     <main className="min-h-screen bg-cream">
@@ -64,64 +34,26 @@ export default function CategoryClient({ category, media }: CategoryClientProps)
             <p className="text-white/80 text-sm md:text-base mt-1">
               {category.description}
             </p>
-            <div className="flex items-center gap-4 mt-2 text-white/70 text-sm">
-              {!usesDrive && (
-                <>
-                  <span className="flex items-center gap-1">
-                    <Camera className="w-4 h-4" />
-                    {photoCount} fotoğraf
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Video className="w-4 h-4" />
-                    {videoCount} video
-                  </span>
-                </>
-              )}
-              <span>{category.date_range}</span>
-              {usesDrive && (
-                <a
-                  href={`https://drive.google.com/drive/folders/${category.drive_folder_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-white transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Google Drive
-                </a>
-              )}
-            </div>
+            <p className="text-white/60 text-sm mt-2">
+              {category.date_range}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Content area */}
       <div className="max-w-[1200px] mx-auto px-4 py-6">
-        {usesDrive ? (
-          /* Google Drive Gallery - loads photos dynamically */
+        {category.drive_folder_id ? (
           <DriveGallery
-            folderId={category.drive_folder_id!}
+            folderId={category.drive_folder_id}
             categoryId={category.id}
             categoryName={category.name}
+            categoryDate={categoryDate}
           />
         ) : (
-          /* Static media gallery with controls */
-          <>
-            <GridControls
-              gridSize={gridSize}
-              onGridSizeChange={setGridSize}
-              sortOption={sortOption}
-              onSortChange={setSortOption}
-              mediaType={mediaType}
-              onMediaTypeChange={setMediaType}
-            />
-            {filteredMedia.length > 0 ? (
-              <MediaGrid media={filteredMedia} gridSize={gridSize} />
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-slate/60">Bu filtreyle eşleşen medya bulunamadı.</p>
-              </div>
-            )}
-          </>
+          <div className="text-center py-20">
+            <p className="text-slate/60">Bu kategori için fotoğraflar yakında eklenecek.</p>
+          </div>
         )}
       </div>
 

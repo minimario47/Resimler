@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, Search, Heart, X, ChevronLeft } from 'lucide-react';
+import { Menu, Heart, X, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { categories } from '@/data/mock-data';
 
@@ -89,27 +89,10 @@ export default function Header({
                   {cat.name}
                 </Link>
               ))}
-              <Link
-                href="/hakkinda"
-                className={`text-sm font-medium hover:text-accent transition-colors ${
-                  shouldBeSolid ? 'text-slate' : 'text-white/90 hover:text-white'
-                }`}
-              >
-                Hakkında
-              </Link>
             </nav>
 
             {/* Right section */}
             <div className="flex items-center gap-1">
-              <Link
-                href="/ara"
-                className={`p-2 rounded-full hover:bg-slate/10 transition-colors ${
-                  shouldBeSolid ? 'text-slate' : 'text-white'
-                }`}
-                aria-label="Ara"
-              >
-                <Search className="w-5 h-5" />
-              </Link>
               <Link
                 href="/favoriler"
                 className={`p-2 rounded-full hover:bg-slate/10 transition-colors ${
@@ -163,7 +146,7 @@ export default function Header({
                     Ana Sayfa
                   </Link>
                   <div className="pt-4 pb-2 px-4 text-xs text-slate/60 uppercase tracking-wide">
-                    Kategoriler
+                    Galeriler
                   </div>
                   {categories.map((cat) => (
                     <Link
@@ -174,27 +157,10 @@ export default function Header({
                     >
                       <span className="font-medium">{cat.name}</span>
                       <span className="text-sm text-slate/60 ml-2">
-                        {cat.media_count} medya
+                        {cat.date_range}
                       </span>
                     </Link>
                   ))}
-                  <div className="pt-4 pb-2 px-4 text-xs text-slate/60 uppercase tracking-wide">
-                    Diğer
-                  </div>
-                  <Link
-                    href="/hakkinda"
-                    className="block px-4 py-3 rounded-lg hover:bg-slate/5 font-medium"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Hakkında
-                  </Link>
-                  <Link
-                    href="/ara"
-                    className="block px-4 py-3 rounded-lg hover:bg-slate/5 font-medium"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Ara
-                  </Link>
                 </nav>
               </div>
             </motion.div>

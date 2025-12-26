@@ -1,5 +1,5 @@
 export type MediaType = 'photo' | 'video';
-export type MediaSource = 'google_drive' | 'icloud' | 'local' | 'other';
+export type MediaSource = 'google_drive' | 'local';
 
 export interface MediaItem {
   id: string;
@@ -15,7 +15,7 @@ export interface MediaItem {
     large: string;
   };
   original_url: string;
-  duration?: number; // for videos, in seconds
+  duration?: number;
   width: number;
   height: number;
   tags: string[];
@@ -23,7 +23,6 @@ export interface MediaItem {
   featured: boolean;
   favorites_count: number;
   category_id: string;
-  album_id?: string;
 }
 
 export interface Category {
@@ -35,28 +34,7 @@ export interface Category {
   cover_image: string;
   media_count: number;
   featured_thumbnails: string[];
-  // Google Drive folder ID for this category's photos
   drive_folder_id?: string;
-}
-
-export interface Album {
-  id: string;
-  name: string;
-  category_id: string;
-  cover_media_id?: string;
-  cover_image?: string;
-  media_count: number;
-  is_protected: boolean;
-  invite_code?: string;
-}
-
-export interface FeaturedMoment {
-  id: string;
-  title: string;
-  subtitle?: string;
-  image: string;
-  media_id: string;
-  category_id: string;
 }
 
 export type GridSize = 'compact' | 'normal' | 'large';
