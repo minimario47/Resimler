@@ -85,7 +85,7 @@ export default function Home() {
         backgroundImage={heroImage}
         title="Nusaybin • Anılar Haftası"
         subtitle="Özlem & Zübeyir"
-        date="24-27 Aralık 2024"
+        date="24-27 Aralık 2025"
         ctaText="Galerileri Gör"
       />
 

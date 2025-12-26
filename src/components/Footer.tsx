@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="max-w-[1200px] mx-auto text-center">
         <div className="flex items-center justify-center gap-2 text-slate/60 text-sm">
           <Heart className="w-4 h-4 text-accent fill-accent" />
-          <span>2024</span>
+          <span>2025</span>
         </div>
         <p className="text-xs text-slate/40 mt-2">
           Özlem & Zübeyir Düğün Arşivi • Nusaybin

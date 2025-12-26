@@ -35,7 +35,7 @@ export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
     title: `Öne Çıkan ${index + 1}`,
     description: 'Özel anlardan',
     media_type: 'photo',
-    created_at: '2024-12-25',
+    created_at: '2025-12-25',
     source: 'google_drive',
     thumbnails: {
       small: `https://drive.google.com/thumbnail?id=${img.id}&sz=w200`,

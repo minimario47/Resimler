@@ -11,10 +11,10 @@ interface CategoryClientProps {
 
 export default function CategoryClient({ category }: CategoryClientProps) {
   // Extract date from date_range for the photos
-  const categoryDate = category.date_range.includes('24') ? '2024-12-24' :
-                       category.date_range.includes('25') ? '2024-12-25' :
-                       category.date_range.includes('26') ? '2024-12-26' :
-                       category.date_range.includes('27') ? '2024-12-27' : '2024-12-25';
+  const categoryDate = category.date_range.includes('24') ? '2025-12-24' :
+                       category.date_range.includes('25') ? '2025-12-25' :
+                       category.date_range.includes('26') ? '2025-12-26' :
+                       category.date_range.includes('27') ? '2025-12-27' : '2025-12-25';
 
   return (
     <main className="min-h-screen bg-cream">
