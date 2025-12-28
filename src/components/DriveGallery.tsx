@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, FolderOpen, ExternalLink } from 'lucide-react';
 import { getDriveUrls } from '@/lib/google-drive';
 import MediaGrid from './MediaGrid';
@@ -20,29 +20,18 @@ interface DriveGalleryProps {
   categoryDate?: string;
 }
 
-// Simple cache to avoid refetching on component remount
-const imageCache: Record<string, DriveImage[]> = {};
-
-export default function DriveGallery({ folderId, categoryId, categoryName, categoryDate = '2024-12-25' }: DriveGalleryProps) {
-  const [images, setImages] = useState<DriveImage[]>(imageCache[folderId] || []);
-  const [loading, setLoading] = useState(!imageCache[folderId]);
+export default function DriveGallery({ folderId, categoryId, categoryName, categoryDate = '2025-12-25' }: DriveGalleryProps) {
+  const [images, setImages] = useState<DriveImage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState<GridSize>('normal');
   const [sortOption, setSortOption] = useState<SortOption>('chronological');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const fetchedRef = useRef(false);
 
   const fetchImages = useCallback(async (forceRefresh = false) => {
     if (!folderId) {
       setLoading(false);
       setError('Bu kategori için henüz fotoğraf eklenmemiş.');
-      return;
-    }
-
-    // Use cache if available and not forcing refresh
-    if (!forceRefresh && imageCache[folderId] && imageCache[folderId].length > 0) {
-      setImages(imageCache[folderId]);
-      setLoading(false);
       return;
     }
 
@@ -64,34 +53,30 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
       for (const proxyUrl of proxies) {
         try {
           const response = await fetch(proxyUrl, { 
-            cache: forceRefresh ? 'no-cache' : 'default' 
+            cache: 'no-store' // Always fetch fresh data
           });
           if (response.ok) {
             html = await response.text();
-            break;
+            if (html && html.length > 100) {
+              break;
+            }
           }
         } catch {
           continue;
         }
       }
 
-      if (!html) {
+      if (!html || html.length < 100) {
         throw new Error('All proxies failed');
       }
 
       // Parse images from HTML
       const extractedImages = parseImagesFromHtml(html);
-      
-      // Update cache and state
-      imageCache[folderId] = extractedImages;
       setImages(extractedImages);
       
     } catch (proxyError) {
       console.error('Fetch failed:', proxyError);
-      // Show fallback embed if no cached data
-      if (!imageCache[folderId] || imageCache[folderId].length === 0) {
-        setError('embed');
-      }
+      setError('embed');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -106,7 +91,6 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
     const patterns = [
       /id="entry-([a-zA-Z0-9_-]+)"[\s\S]*?flip-entry-title">([^<]+)</g,
       /data-id="([a-zA-Z0-9_-]+)"[\s\S]*?title="([^"]+)"/g,
-      /"([a-zA-Z0-9_-]{25,})"[\s\S]*?"([^"]*\.(jpg|jpeg|png|gif|webp|heic))"/gi,
     ];
     
     for (const regex of patterns) {
@@ -134,10 +118,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
 
   // Initial fetch
   useEffect(() => {
-    if (!fetchedRef.current) {
-      fetchedRef.current = true;
-      fetchImages();
-    }
+    fetchImages();
   }, [fetchImages]);
 
   // Convert Drive images to MediaItem format for MediaGrid
