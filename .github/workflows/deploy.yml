@@ -38,12 +38,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Migrate Photos to R2
+        run: npm run migrate:r2
+        continue-on-error: true
+        timeout-minutes: 30
+
       - name: Generate R2 Metadata
         run: npm run generate:r2-metadata
         continue-on-error: true
 
       - name: Copy R2 Metadata to Public
-        run: cp src/data/r2-metadata.json public/r2-metadata.json || echo "Metadata file not found, skipping"
+        run: |
+          if [ -f "src/data/r2-metadata.json" ]; then
+            cp src/data/r2-metadata.json public/r2-metadata.json
+            echo "✓ Copied r2-metadata.json to public/"
+          else
+            echo "⚠ Metadata file not found, skipping"
+          fi
         continue-on-error: true
 
       - name: Build

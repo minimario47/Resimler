@@ -206,18 +206,55 @@ async function downloadDriveFile(fileId: string, fileName: string, outputPath: s
           return true;
         }
       }
-    } catch (error) {
+    } catch {
       console.log(`      API download failed, trying fallback methods...`);
     }
   }
   
-  // Strategy 2: Use lh3.googleusercontent.com (works for shared photos)
+  // Strategy 2: Use Google Drive thumbnail API (works without authentication for public files)
+  // This is the most reliable method for public Google Drive files
+  try {
+    // Use thumbnail API with maximum size - this works reliably for public files
+    const thumbnailUrls = [
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,  // Large thumbnail
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+    ];
+    
+    for (const url of thumbnailUrls) {
+      try {
+        const response = await httpsRequest(url);
+        
+        if (response.statusCode === 200 && response.data.length > 5000) {
+          // Verify it's an image (JPEG from thumbnail API)
+          const isImage = (
+            (response.data[0] === 0xFF && response.data[1] === 0xD8) || // JPEG
+            (response.data[0] === 0x89 && response.data[1] === 0x50) || // PNG
+            (response.data[0] === 0x47 && response.data[1] === 0x49 && response.data[2] === 0x46) // GIF
+          );
+          
+          if (isImage) {
+            fs.writeFileSync(outputPath, response.data);
+            console.log(`      ✓ Downloaded via thumbnail API (${(response.data.length / 1024).toFixed(1)}KB)`);
+            return true;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    console.log(`      Thumbnail API failed`);
+  }
+  
+  // Strategy 3: Use lh3.googleusercontent.com (works for shared photos)
   try {
     // Try full resolution first, then progressively lower
     const googleUserContentUrls = [
       `https://lh3.googleusercontent.com/d/${fileId}=s0`,  // Original size
-      `https://lh3.googleusercontent.com/d/${fileId}=w0`,  // Max width
       `https://lh3.googleusercontent.com/d/${fileId}=w2048`,  // 2048px width
+      `https://lh3.googleusercontent.com/d/${fileId}=w1600`,
       `https://lh3.googleusercontent.com/d/${fileId}`,  // Default size
     ];
     
@@ -236,18 +273,19 @@ async function downloadDriveFile(fileId: string, fileName: string, outputPath: s
           
           if (isImage) {
             fs.writeFileSync(outputPath, response.data);
+            console.log(`      ✓ Downloaded via GoogleUserContent (${(response.data.length / 1024).toFixed(1)}KB)`);
             return true;
           }
         }
-      } catch (e) {
+      } catch {
         continue;
       }
     }
-  } catch (error) {
+  } catch {
     console.log(`      GoogleUserContent fallback failed`);
   }
   
-  // Strategy 3: Direct download with virus scan bypass
+  // Strategy 4: Direct download with virus scan bypass
   try {
     // First request to get the download page
     const initialUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
@@ -297,7 +335,7 @@ async function downloadDriveFile(fileId: string, fileName: string, outputPath: s
         }
       }
     }
-  } catch (error) {
+  } catch {
     console.log(`      Direct download failed`);
   }
   
