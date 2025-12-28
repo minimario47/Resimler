@@ -1,2 +1,3 @@
-:HL["/Resimler/_next/static/chunks/7ea463138c65418f.css","style"]
-0:{"buildId":"XrN7Ty_GTxYep86w3Hs1_","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"/_not-found","paramType":null,"paramKey":"/_not-found","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+:HL["/Resimler/_next/static/chunks/17b204cada283f4b.css","style"]
+:HL["https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w1920","image"]
+0:{"buildId":"Bf5bOFU5lwlNEFs0CJuFK","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"/_not-found","paramType":null,"paramKey":"/_not-found","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
