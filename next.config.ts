@@ -21,6 +21,16 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_R2_PUBLIC_URL: r2PublicUrl,
   },
+  // Copy JSON files to output for static access
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

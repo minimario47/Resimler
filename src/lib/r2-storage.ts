@@ -93,14 +93,53 @@ export function getR2Urls(key: string, config?: R2Config): {
  * Fetch files from R2 for a category
  * Uses static metadata file for static site exports
  */
+/**
+ * Fetch files from R2 for a category
+ * Uses static metadata file for static site exports
+ */
 export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]> {
   try {
-    // Load from static metadata file
-    const metadata = await import('@/data/r2-metadata.json');
-    const category = metadata.categories?.find((cat: any) => cat.categoryId === categoryId);
+    // In static exports, fetch from public folder
+    const basePath = typeof window !== 'undefined' 
+      ? window.location.pathname.split('/').slice(0, -1).filter(p => p && p !== 'kategori').join('/') || ''
+      : '';
     
-    if (category && category.files) {
-      return category.files;
+    // Try multiple paths for compatibility
+    const paths = [
+      `${basePath}/r2-metadata.json`,
+      '/Resimler/r2-metadata.json',
+      '/r2-metadata.json',
+      `${basePath}/_next/static/data/r2-metadata.json`,
+    ];
+    
+    let metadata: any = null;
+    
+    for (const path of paths) {
+      try {
+        const response = await fetch(path);
+        if (response.ok) {
+          metadata = await response.json();
+          break;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    // Fallback: try dynamic import (works in dev)
+    if (!metadata) {
+      try {
+        metadata = await import('@/data/r2-metadata.json');
+      } catch (e) {
+        console.warn('Failed to load R2 metadata from all sources');
+      }
+    }
+    
+    if (metadata && metadata.categories) {
+      const category = metadata.categories.find((cat: any) => cat.categoryId === categoryId);
+      if (category && category.files) {
+        return category.files;
+      }
     }
     
     return [];

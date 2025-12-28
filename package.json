@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "NEXT_PUBLIC_REPO_NAME=Resimler NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev next build && cp public/.nojekyll out/",
+    "build": "NEXT_PUBLIC_REPO_NAME=Resimler NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev next build && cp public/.nojekyll out/ && cp public/r2-metadata.json out/r2-metadata.json 2>/dev/null || true",
     "build:local": "NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev next build",
     "start": "next start",
     "lint": "eslint",
