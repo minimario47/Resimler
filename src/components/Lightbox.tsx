@@ -27,49 +27,42 @@ export default function Lightbox({ media, initialIndex, onClose }: LightboxProps
   const [showControls, setShowControls] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [preloadedImages, setPreloadedImages] = useState<Set<number>>(new Set([initialIndex]));
+  const preloadedImagesRef = useRef<Set<number>>(new Set([initialIndex]));
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentMedia = media[currentIndex];
   const isVideo = currentMedia.media_type === 'video';
 
-  // Preload adjacent images for smoother navigation
-  const preloadImage = useCallback((index: number) => {
-    if (index < 0 || index >= media.length) return;
-    if (preloadedImages.has(index)) return;
-    
-    const img = new Image();
-    img.src = media[index].thumbnails.large;
-    setPreloadedImages(prev => new Set([...prev, index]));
-  }, [media, preloadedImages]);
-
-  // Preload next and previous images
+  // Preload adjacent images for smoother navigation (no setState, just side effect)
   useEffect(() => {
-    preloadImage(currentIndex - 1);
-    preloadImage(currentIndex + 1);
-    preloadImage(currentIndex + 2);
-    preloadImage(currentIndex - 2);
-  }, [currentIndex, preloadImage]);
+    const indicesToPreload = [
+      currentIndex - 1,
+      currentIndex + 1,
+      currentIndex + 2,
+      currentIndex - 2,
+    ].filter(i => i >= 0 && i < media.length);
 
-  // Reset image loaded state when changing images
-  useEffect(() => {
-    if (preloadedImages.has(currentIndex)) {
-      setImageLoaded(true);
-    } else {
-      setImageLoaded(false);
-    }
-  }, [currentIndex, preloadedImages]);
+    indicesToPreload.forEach(index => {
+      if (!preloadedImagesRef.current.has(index)) {
+        const img = new window.Image();
+        img.src = media[index].thumbnails.large;
+        preloadedImagesRef.current.add(index);
+      }
+    });
+  }, [currentIndex, media]);
 
   // Navigation functions
   const goToNext = useCallback(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setImageLoaded(false); // Reset loaded state for new image
     setCurrentIndex((i) => (i + 1) % media.length);
   }, [media.length]);
 
   const goToPrev = useCallback(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setImageLoaded(false); // Reset loaded state for new image
     setCurrentIndex((i) => (i - 1 + media.length) % media.length);
   }, [media.length]);
 

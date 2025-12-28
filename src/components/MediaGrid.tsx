@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import Masonry from 'react-masonry-css';
-import { motion } from 'framer-motion';
 import { Play, Heart } from 'lucide-react';
 import { MediaItem, GridSize } from '@/types';
 import Lightbox from './Lightbox';
@@ -55,12 +54,10 @@ export default function MediaGrid({ media, gridSize = 'normal' }: MediaGridProps
         columnClassName="pl-2 bg-clip-padding"
       >
         {media.map((item, index) => (
-          <motion.div
+          <div
             key={item.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(index * 0.05, 0.5) }}
-            className="mb-2"
+            className="mb-2 animate-fade-in"
+            style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
             <div
               onClick={() => setSelectedIndex(index)}
@@ -130,7 +127,7 @@ export default function MediaGrid({ media, gridSize = 'normal' }: MediaGridProps
                 </button>
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </Masonry>
 

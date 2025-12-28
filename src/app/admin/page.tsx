@@ -8,7 +8,7 @@ import {
   Eye,
   EyeOff,
   LogIn,
-  Image,
+  Image as ImageIcon,
   Video,
   Link2,
   Plus,
@@ -284,7 +284,7 @@ function LoginView({
 // Dashboard View
 function DashboardView({ onAddLink }: { onAddLink: () => void }) {
   const stats = [
-    { label: 'Toplam Fotoğraf', value: 312, icon: <Image className="w-6 h-6" /> },
+    { label: 'Toplam Fotoğraf', value: 312, icon: <ImageIcon className="w-6 h-6" /> },
     { label: 'Toplam Video', value: 45, icon: <Video className="w-6 h-6" /> },
     { label: 'Kategoriler', value: 3, icon: <FolderOpen className="w-6 h-6" /> },
     { label: 'Kullanıcılar', value: 1, icon: <Users className="w-6 h-6" /> },
@@ -546,7 +546,7 @@ function AddLinkView() {
                 iCloud Paylaşım Talimatları:
               </p>
               <ol className="list-decimal list-inside space-y-1 text-amber-700">
-                <li>iPhone/iPad'de Fotoğraflar uygulamasını açın</li>
+                <li>iPhone/iPad&apos;de Fotoğraflar uygulamasını açın</li>
                 <li>Paylaşmak istediğiniz albümü seçin</li>
                 <li>Paylaş simgesine dokunun → &quot;iCloud Bağlantısını Kopyala&quot;</li>
                 <li>Kopyalanan linki buraya yapıştırın</li>

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import FeaturedCarousel from '@/components/FeaturedCarousel';
 import CategoryTiles from '@/components/CategoryTiles';
 import Footer from '@/components/Footer';
 import { categories, DRIVE_FOLDERS } from '@/data/mock-data';
-import { RefreshCw } from 'lucide-react';
+import { getFromCache, setInCache, checkCacheVersion } from '@/lib/cache';
 
 interface FeaturedImage {
   id: string;
@@ -15,12 +15,48 @@ interface FeaturedImage {
   thumbnailUrl: string;
 }
 
+interface CachedHomeData {
+  heroImage: string;
+  featuredImages: FeaturedImage[];
+}
+
+// Default fallback hero image for instant loading
+const FALLBACK_HERO = 'https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w1920';
+const CACHE_KEY = 'home_featured_data';
+
 export default function Home() {
   const [featuredImages, setFeaturedImages] = useState<FeaturedImage[]>([]);
-  const [heroImage, setHeroImage] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [heroImage, setHeroImage] = useState<string>(FALLBACK_HERO);
+  const [loading, setLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  const fetchFeaturedImages = useCallback(async () => {
+  useEffect(() => {
+    // Check cache version on mount
+    checkCacheVersion();
+    
+    // Only fetch once
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+    
+    // Try to get cached data first for instant loading
+    const cached = getFromCache<CachedHomeData>(CACHE_KEY);
+    if (cached) {
+      setHeroImage(cached.data.heroImage);
+      setFeaturedImages(cached.data.featuredImages);
+      
+      // If data is stale, refresh in background
+      if (cached.isStale) {
+        fetchFeaturedImages(true);
+      }
+      return;
+    }
+    
+    // No cache, show loading and fetch
+    setLoading(true);
+    fetchFeaturedImages(false);
+  }, []);
+
+  const fetchFeaturedImages = async (isBackground: boolean) => {
     try {
       const folderId = DRIVE_FOLDERS['featured'];
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
@@ -49,30 +85,57 @@ export default function Home() {
       }
       
       if (images.length > 0) {
-        // First image for hero, rest for featured carousel
-        setHeroImage(`https://drive.google.com/thumbnail?id=${images[0].id}&sz=w1920`);
-        setFeaturedImages(images.slice(1));
+        const heroImg = `https://drive.google.com/thumbnail?id=${images[0].id}&sz=w1920`;
+        const featured = images.slice(1);
+        
+        // Cache the data for 5 minutes
+        setInCache<CachedHomeData>(CACHE_KEY, {
+          heroImage: heroImg,
+          featuredImages: featured,
+        }, 5 * 60 * 1000);
+        
+        setHeroImage(heroImg);
+        setFeaturedImages(featured);
       }
     } catch (error) {
       console.error('Failed to fetch featured images:', error);
-      // Use a fallback image
-      setHeroImage('https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w1920');
+      // Keep fallback image if already set
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    fetchFeaturedImages();
-  }, [fetchFeaturedImages]);
-
+  // Show skeleton instead of blocking loading spinner
   if (loading) {
     return (
-      <main className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-accent mx-auto mb-4" />
-          <p className="text-slate/60">Yükleniyor...</p>
+      <main className="min-h-screen">
+        <Header transparent />
+        <Hero
+          backgroundImage={FALLBACK_HERO}
+          title="Nusaybin • Anılar Haftası"
+          subtitle="Özlem & Zübeyir"
+          date="24-27 Aralık 2025"
+          ctaText="Galerileri Gör"
+        />
+        <div className="bg-cream">
+          {/* Skeleton for featured carousel */}
+          <section className="py-8 md:py-12">
+            <div className="max-w-[1200px] mx-auto">
+              <div className="px-4 mb-6">
+                <div className="h-8 w-48 bg-slate/10 rounded animate-pulse" />
+              </div>
+              <div className="flex gap-4 overflow-hidden px-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex-shrink-0 w-[240px] md:w-[280px] aspect-[3/4] rounded-xl bg-slate/10 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </section>
+          <CategoryTiles categories={categories} />
         </div>
+        <Footer />
       </main>
     );
   }

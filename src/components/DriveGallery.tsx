@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, FolderOpen, ExternalLink } from 'lucide-react';
 import { getDriveUrls } from '@/lib/google-drive';
+import { getFromCache, setInCache, getDriveCacheKey } from '@/lib/cache';
 import MediaGrid from './MediaGrid';
 import GridControls from './GridControls';
 import { MediaItem, GridSize, SortOption } from '@/types';
@@ -27,12 +28,30 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
   const [gridSize, setGridSize] = useState<GridSize>('normal');
   const [sortOption, setSortOption] = useState<SortOption>('chronological');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasFetched = useRef(false);
 
   const fetchImages = useCallback(async (forceRefresh = false) => {
     if (!folderId) {
       setLoading(false);
       setError('Bu kategori için henüz fotoğraf eklenmemiş.');
       return;
+    }
+
+    const cacheKey = getDriveCacheKey(folderId);
+
+    // Try to get cached data first (unless forcing refresh)
+    if (!forceRefresh) {
+      const cached = getFromCache<DriveImage[]>(cacheKey);
+      if (cached) {
+        setImages(cached.data);
+        setLoading(false);
+        
+        // If data is stale, refresh in background
+        if (cached.isStale) {
+          fetchFromNetwork(cacheKey, true);
+        }
+        return;
+      }
     }
 
     if (forceRefresh) {
@@ -42,6 +61,10 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
     }
     setError(null);
 
+    await fetchFromNetwork(cacheKey, forceRefresh);
+  }, [folderId]);
+
+  const fetchFromNetwork = async (cacheKey: string, isBackground: boolean) => {
     try {
       // Try multiple proxies for reliability
       const proxies = [
@@ -52,9 +75,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
       let html = '';
       for (const proxyUrl of proxies) {
         try {
-          const response = await fetch(proxyUrl, { 
-            cache: 'no-store' // Always fetch fresh data
-          });
+          const response = await fetch(proxyUrl);
           if (response.ok) {
             html = await response.text();
             if (html && html.length > 100) {
@@ -72,16 +93,25 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
 
       // Parse images from HTML
       const extractedImages = parseImagesFromHtml(html);
+      
+      // Cache the results for 5 minutes
+      setInCache(cacheKey, extractedImages, 5 * 60 * 1000);
+      
       setImages(extractedImages);
       
     } catch (proxyError) {
       console.error('Fetch failed:', proxyError);
-      setError('embed');
+      // Only show error if not a background refresh and no cached data
+      if (!isBackground) {
+        setError('embed');
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
       setIsRefreshing(false);
     }
-  }, [folderId]);
+  };
 
   // Parse images from embedded folder HTML
   function parseImagesFromHtml(html: string): DriveImage[] {
@@ -116,9 +146,12 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
     return images;
   }
 
-  // Initial fetch
+  // Initial fetch - only once
   useEffect(() => {
-    fetchImages();
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchImages();
+    }
   }, [fetchImages]);
 
   // Convert Drive images to MediaItem format for MediaGrid
@@ -161,10 +194,27 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
   }
 
   if (loading) {
+    // Skeleton loading for better perceived performance
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <RefreshCw className="w-8 h-8 animate-spin text-accent mb-4" />
-        <p className="text-slate/60">Fotoğraflar yükleniyor...</p>
+      <div className="space-y-4">
+        {/* Skeleton for grid controls */}
+        <div className="flex justify-between items-center py-2">
+          <div className="h-6 w-24 bg-slate/10 rounded animate-pulse" />
+          <div className="flex gap-2">
+            <div className="h-10 w-10 bg-slate/10 rounded animate-pulse" />
+            <div className="h-10 w-10 bg-slate/10 rounded animate-pulse" />
+          </div>
+        </div>
+        {/* Skeleton grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div 
+              key={i} 
+              className="aspect-[4/5] rounded-lg bg-slate/10 animate-pulse"
+              style={{ animationDelay: `${i * 50}ms` }}
+            />
+          ))}
+        </div>
       </div>
     );
   }

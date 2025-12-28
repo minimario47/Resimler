@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { Category } from '@/types';
 import { ChevronRight } from 'lucide-react';
 
@@ -19,11 +18,10 @@ export default function CategoryTiles({ categories }: CategoryTilesProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {categories.map((category, index) => (
-            <motion.div
+            <div
               key={category.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              className="animate-slide-up"
+              style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'backwards' }}
             >
               <Link
                 href={`/kategori/${category.slug}`}
@@ -53,7 +51,7 @@ export default function CategoryTiles({ categories }: CategoryTilesProps) {
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

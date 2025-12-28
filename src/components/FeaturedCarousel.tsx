@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Lightbox from './Lightbox';
 import { MediaItem } from '@/types';
@@ -82,12 +81,10 @@ export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
           className="flex gap-4 overflow-x-auto no-scrollbar px-4 pb-4 snap-x snap-mandatory"
         >
           {images.map((image, index) => (
-            <motion.div
+            <div
               key={image.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="flex-shrink-0 snap-start"
+              className="flex-shrink-0 snap-start animate-fade-in"
+              style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
             >
               <button
                 onClick={() => setSelectedIndex(index)}
@@ -104,7 +101,7 @@ export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </button>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
