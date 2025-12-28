@@ -11,7 +11,7 @@
  *   - R2_SECRET_ACCESS_KEY: R2 secret access key
  *   - R2_BUCKET_NAME: R2 bucket name
  *   - R2_PUBLIC_URL: Public URL for the R2 bucket (e.g., https://your-bucket.r2.dev)
- *   - GOOGLE_DRIVE_API_KEY: (Optional) Google Drive API key for faster downloads
+ *   - GOOGLE_DRIVE_API_KEY: (Optional) Google Drive API key for reliable downloads
  */
 
 import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
@@ -19,7 +19,6 @@ import { DRIVE_FOLDERS } from '../src/data/mock-data';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
-import * as http from 'http';
 
 interface DriveFile {
   id: string;
@@ -55,12 +54,36 @@ function getR2Client() {
   });
 }
 
-// Fetch files from Google Drive folder
+// Fetch files from Google Drive folder using API (if API key available) or embedded view
 async function fetchDriveFolderFiles(folderId: string): Promise<DriveFile[]> {
   console.log(`\n📁 Fetching files from Google Drive folder: ${folderId}`);
   
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  
+  // If API key is available, use the Drive API for reliable listing
+  if (apiKey) {
+    try {
+      const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)&key=${apiKey}&pageSize=1000`;
+      const response = await fetch(apiUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const files: DriveFile[] = (data.files || [])
+          .filter((f: { name: string; mimeType: string }) => 
+            f.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(f.name)
+          )
+          .map((f: { id: string; name: string }) => ({ id: f.id, name: f.name }));
+        
+        console.log(`   Found ${files.length} image files (via API)`);
+        return files;
+      }
+    } catch (error) {
+      console.log(`   API failed, falling back to embedded view`);
+    }
+  }
+  
+  // Fall back to embedded folder view
   try {
-    // Try using embedded folder view (works for public folders)
     const proxies = [
       `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
       `https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
@@ -114,154 +137,172 @@ async function fetchDriveFolderFiles(folderId: string): Promise<DriveFile[]> {
   }
 }
 
-// Download file from Google Drive with proper handling
+// Helper to make HTTPS request with redirect following
+function httpsRequest(url: string, options: https.RequestOptions = {}): Promise<{ statusCode: number; headers: Record<string, string | string[] | undefined>; data: Buffer }> {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const reqOptions: https.RequestOptions = {
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/*,*/*;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9',
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      // Handle redirects
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const redirectUrl = res.headers.location.startsWith('http') 
+          ? res.headers.location 
+          : new URL(res.headers.location, url).toString();
+        httpsRequest(redirectUrl, options).then(resolve).catch(reject);
+        return;
+      }
+
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode || 0,
+          headers: res.headers as Record<string, string | string[] | undefined>,
+          data: Buffer.concat(chunks),
+        });
+      });
+      res.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.setTimeout(60000, () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+    req.end();
+  });
+}
+
+// Download file from Google Drive with proper handling for large files
 async function downloadDriveFile(fileId: string, fileName: string, outputPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    // Use the thumbnail URL method which is more reliable for public files
-    // For full resolution, we'll try multiple methods
-    const urls = [
-      `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t&uuid=`,
-      `https://drive.google.com/uc?export=download&id=${fileId}`,
-      `https://lh3.googleusercontent.com/d/${fileId}=w0`, // Try to get original via thumbnail API
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  
+  // Strategy 1: Use Google Drive API with API key (most reliable for public files)
+  if (apiKey) {
+    try {
+      // Get file metadata first
+      const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=size,mimeType&key=${apiKey}`;
+      const metaResponse = await httpsRequest(metaUrl);
+      
+      if (metaResponse.statusCode === 200) {
+        // Download using API
+        const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+        const response = await httpsRequest(downloadUrl);
+        
+        if (response.statusCode === 200 && response.data.length > 1000) {
+          fs.writeFileSync(outputPath, response.data);
+          return true;
+        }
+      }
+    } catch (error) {
+      console.log(`      API download failed, trying fallback methods...`);
+    }
+  }
+  
+  // Strategy 2: Use lh3.googleusercontent.com (works for shared photos)
+  try {
+    // Try full resolution first, then progressively lower
+    const googleUserContentUrls = [
+      `https://lh3.googleusercontent.com/d/${fileId}=s0`,  // Original size
+      `https://lh3.googleusercontent.com/d/${fileId}=w0`,  // Max width
+      `https://lh3.googleusercontent.com/d/${fileId}=w2048`,  // 2048px width
+      `https://lh3.googleusercontent.com/d/${fileId}`,  // Default size
     ];
     
-    let urlIndex = 0;
-    let file: fs.WriteStream | null = null;
-    let bytesDownloaded = 0;
-    let dataBuffer = Buffer.alloc(0);
-    
-    const cleanup = () => {
-      if (file) {
-        file.end();
-        file = null;
-      }
-      if (fs.existsSync(outputPath) && bytesDownloaded < 1000) {
-        try {
-          fs.unlinkSync(outputPath);
-        } catch {}
-      }
-    };
-    
-    const makeRequest = (requestUrl: string): void => {
-      if (!file) {
-        file = fs.createWriteStream(outputPath);
-      }
-      
-      const request = https.get(requestUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': '*/*',
-        },
-      }, (response) => {
-        // Handle redirects
-        if (response.statusCode === 302 || response.statusCode === 301 || response.statusCode === 303 || response.statusCode === 307) {
-          const location = response.headers.location;
-          if (location) {
-            const redirectUrl = location.startsWith('http') 
-              ? location 
-              : `https://drive.google.com${location}`;
-            makeRequest(redirectUrl);
-            return;
-          }
-        }
+    for (const url of googleUserContentUrls) {
+      try {
+        const response = await httpsRequest(url);
         
-        // Check content type
-        const contentType = response.headers['content-type'] || '';
-        const isHTML = contentType.includes('text/html') || contentType.includes('application/json');
-        
-        if (isHTML && urlIndex < urls.length - 1) {
-          // Got HTML, try next URL
-          response.destroy();
-          urlIndex++;
-          bytesDownloaded = 0;
-          dataBuffer = Buffer.alloc(0);
-          if (file) {
-            file.end();
-            file = null;
-          }
-          if (fs.existsSync(outputPath)) {
-            fs.unlinkSync(outputPath);
-          }
-          setTimeout(() => makeRequest(urls[urlIndex]), 100);
-          return;
-        }
-        
-        response.on('data', (chunk) => {
-          bytesDownloaded += chunk.length;
-          dataBuffer = Buffer.concat([dataBuffer, chunk]);
-          if (file) {
-            file.write(chunk);
-          }
-        });
-        
-        response.on('end', () => {
-          if (file) {
-            file.end();
-            file = null;
-          }
+        if (response.statusCode === 200 && response.data.length > 5000) {
+          // Verify it's an image
+          const isImage = (
+            (response.data[0] === 0xFF && response.data[1] === 0xD8) || // JPEG
+            (response.data[0] === 0x89 && response.data[1] === 0x50) || // PNG
+            response.data.slice(4, 8).toString() === 'ftyp' ||  // HEIC/HEIF
+            (response.data[0] === 0x47 && response.data[1] === 0x49 && response.data[2] === 0x46) // GIF
+          );
           
-          // Check if we got valid image data
-          const isValidImage = bytesDownloaded > 1000 && 
-            (dataBuffer[0] === 0xFF && dataBuffer[1] === 0xD8) || // JPEG
-            (dataBuffer[0] === 0x89 && dataBuffer[1] === 0x50) || // PNG
-            dataBuffer.toString('ascii', 0, 4) === 'ftyp'; // HEIC/MP4
-          
-          if (isValidImage) {
-            resolve(true);
-          } else if (urlIndex < urls.length - 1) {
-            // Try next URL
-            urlIndex++;
-            bytesDownloaded = 0;
-            dataBuffer = Buffer.alloc(0);
-            cleanup();
-            setTimeout(() => makeRequest(urls[urlIndex]), 100);
-          } else {
-            console.error(`      Warning: Downloaded ${bytesDownloaded} bytes but not a valid image for ${fileName}`);
-            cleanup();
-            resolve(false);
+          if (isImage) {
+            fs.writeFileSync(outputPath, response.data);
+            return true;
           }
-        });
-        
-        response.on('error', (error) => {
-          if (urlIndex < urls.length - 1) {
-            urlIndex++;
-            cleanup();
-            setTimeout(() => makeRequest(urls[urlIndex]), 100);
-          } else {
-            console.error(`      Download error:`, error.message);
-            cleanup();
-            resolve(false);
-          }
-        });
-      });
-      
-      request.on('error', (error) => {
-        if (urlIndex < urls.length - 1) {
-          urlIndex++;
-          cleanup();
-          setTimeout(() => makeRequest(urls[urlIndex]), 500);
-        } else {
-          console.error(`      Request error:`, error.message);
-          cleanup();
-          resolve(false);
         }
-      });
-      
-      request.setTimeout(30000, () => {
-        request.destroy();
-        if (urlIndex < urls.length - 1) {
-          urlIndex++;
-          cleanup();
-          makeRequest(urls[urlIndex]);
-        } else {
-          cleanup();
-          resolve(false);
-        }
-      });
-    };
+      } catch (e) {
+        continue;
+      }
+    }
+  } catch (error) {
+    console.log(`      GoogleUserContent fallback failed`);
+  }
+  
+  // Strategy 3: Direct download with virus scan bypass
+  try {
+    // First request to get the download page
+    const initialUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    const initialResponse = await httpsRequest(initialUrl);
     
-    makeRequest(urls[0]);
-  });
+    if (initialResponse.statusCode === 200) {
+      const contentType = (initialResponse.headers['content-type'] as string) || '';
+      
+      // If we got the actual file (small files)
+      if (!contentType.includes('text/html') && initialResponse.data.length > 1000) {
+        fs.writeFileSync(outputPath, initialResponse.data);
+        return true;
+      }
+      
+      // For large files, Google shows a warning page - extract confirmation token
+      const html = initialResponse.data.toString();
+      
+      // Look for various confirmation patterns
+      const patterns = [
+        /confirm=([0-9A-Za-z_-]+)/,
+        /name="confirm" value="([^"]+)"/,
+        /id="uc-download-link"[^>]*href="[^"]*confirm=([^&"]+)/,
+        /&amp;confirm=([^&]+)/,
+        /uuid=([0-9a-f-]+)/,
+      ];
+      
+      let confirmToken = '';
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match) {
+          confirmToken = match[1];
+          break;
+        }
+      }
+      
+      if (confirmToken) {
+        // Download with confirmation token
+        const confirmUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${confirmToken}`;
+        const confirmResponse = await httpsRequest(confirmUrl);
+        
+        if (confirmResponse.statusCode === 200 && confirmResponse.data.length > 1000) {
+          const ct = (confirmResponse.headers['content-type'] as string) || '';
+          if (!ct.includes('text/html')) {
+            fs.writeFileSync(outputPath, confirmResponse.data);
+            return true;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`      Direct download failed`);
+  }
+  
+  console.error(`      ✗ All download methods failed for ${fileName}`);
+  return false;
 }
 
 // Upload file to R2

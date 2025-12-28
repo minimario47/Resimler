@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Header from '@/components/Header';
 import DriveGallery from '@/components/DriveGallery';
 import R2Gallery from '@/components/R2Gallery';
@@ -13,12 +13,10 @@ interface CategoryClientProps {
 }
 
 export default function CategoryClient({ category }: CategoryClientProps) {
-  const [useR2, setUseR2] = useState(false);
-  
-  // Check if R2 is configured
-  useEffect(() => {
+  // Check if R2 is configured (memoized to avoid recalculating on each render)
+  const useR2 = useMemo(() => {
     const r2Config = getR2Config();
-    setUseR2(r2Config !== null);
+    return r2Config !== null;
   }, []);
 
   // Extract date from date_range for the photos
