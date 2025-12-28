@@ -14,6 +14,12 @@ concurrency:
 
 env:
   NEXT_PUBLIC_REPO_NAME: Resimler
+  NEXT_PUBLIC_R2_PUBLIC_URL: https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+  R2_PUBLIC_URL: https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev
 
 jobs:
   build-and-deploy:
@@ -30,6 +36,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate R2 Metadata
+        run: npm run generate:r2-metadata
+        continue-on-error: true
 
       - name: Build
         run: npm run build

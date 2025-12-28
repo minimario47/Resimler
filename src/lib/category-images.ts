@@ -20,12 +20,19 @@ function getMetadata(): R2Metadata | null {
   if (metadata) return metadata;
   
   try {
-    // Dynamic import to handle cases where file might not exist
-    const r2Metadata = require('@/data/r2-metadata.json');
-    metadata = r2Metadata as R2Metadata;
+    // Use dynamic import for better compatibility
+    if (typeof window === 'undefined') {
+      // Server-side: use require
+      const r2Metadata = require('@/data/r2-metadata.json');
+      metadata = r2Metadata as R2Metadata;
+    } else {
+      // Client-side: metadata should be imported at build time
+      // This will be handled by Next.js static imports
+      return null;
+    }
     return metadata;
   } catch (error) {
-    console.warn('R2 metadata file not found, using fallback images');
+    // Metadata file doesn't exist or can't be loaded
     return null;
   }
 }

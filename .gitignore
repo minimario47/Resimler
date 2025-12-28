@@ -42,4 +42,4 @@ next-env.d.ts
 
 # migration
 .temp-migration/
-src/data/r2-metadata.json
+# Note: r2-metadata.json is needed for static site, so it's committed

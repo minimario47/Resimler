@@ -49,16 +49,13 @@ export default function RootLayout({
   return (
     <html lang="tr" dir="ltr">
       <head>
-        {/* Preconnect to Google Drive for faster image loading */}
+        {/* Preconnect to R2 for faster image loading */}
+        <link rel="preconnect" href="https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev" />
+        <link rel="dns-prefetch" href="https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev" />
+        {/* Preconnect to Google Drive as fallback */}
         <link rel="preconnect" href="https://drive.google.com" />
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
         <link rel="dns-prefetch" href="https://api.allorigins.win" />
-        {/* Preload hero image for faster LCP */}
-        <link 
-          rel="preload" 
-          as="image" 
-          href="https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w1920"
-        />
       </head>
       <body
         className={`${playfair.variable} ${inter.variable} antialiased min-h-screen`}
