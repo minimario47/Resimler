@@ -14,7 +14,7 @@
  *   - GOOGLE_DRIVE_API_KEY: (Optional) Google Drive API key for faster downloads
  */
 
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { DRIVE_FOLDERS } from '../src/data/mock-data';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -117,65 +117,150 @@ async function fetchDriveFolderFiles(folderId: string): Promise<DriveFile[]> {
 // Download file from Google Drive with proper handling
 async function downloadDriveFile(fileId: string, fileName: string, outputPath: string): Promise<boolean> {
   return new Promise((resolve) => {
-    // Use the view URL which is more reliable for direct downloads
-    const url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+    // Use the thumbnail URL method which is more reliable for public files
+    // For full resolution, we'll try multiple methods
+    const urls = [
+      `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t&uuid=`,
+      `https://drive.google.com/uc?export=download&id=${fileId}`,
+      `https://lh3.googleusercontent.com/d/${fileId}=w0`, // Try to get original via thumbnail API
+    ];
     
-    const file = fs.createWriteStream(outputPath);
+    let urlIndex = 0;
+    let file: fs.WriteStream | null = null;
     let bytesDownloaded = 0;
+    let dataBuffer = Buffer.alloc(0);
     
-    const makeRequest = (requestUrl: string, followRedirects = true): void => {
-      https.get(requestUrl, (response) => {
+    const cleanup = () => {
+      if (file) {
+        file.end();
+        file = null;
+      }
+      if (fs.existsSync(outputPath) && bytesDownloaded < 1000) {
+        try {
+          fs.unlinkSync(outputPath);
+        } catch {}
+      }
+    };
+    
+    const makeRequest = (requestUrl: string): void => {
+      if (!file) {
+        file = fs.createWriteStream(outputPath);
+      }
+      
+      const request = https.get(requestUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+        },
+      }, (response) => {
         // Handle redirects
-        if ((response.statusCode === 302 || response.statusCode === 301) && followRedirects) {
+        if (response.statusCode === 302 || response.statusCode === 301 || response.statusCode === 303 || response.statusCode === 307) {
           const location = response.headers.location;
           if (location) {
-            makeRequest(location, true);
+            const redirectUrl = location.startsWith('http') 
+              ? location 
+              : `https://drive.google.com${location}`;
+            makeRequest(redirectUrl);
             return;
           }
         }
         
-        // Check if we got HTML instead of the file (Google Drive warning page)
+        // Check content type
         const contentType = response.headers['content-type'] || '';
-        if (contentType.includes('text/html')) {
-          // Try alternative download method
-          const altUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-          makeRequest(altUrl, false);
+        const isHTML = contentType.includes('text/html') || contentType.includes('application/json');
+        
+        if (isHTML && urlIndex < urls.length - 1) {
+          // Got HTML, try next URL
+          response.destroy();
+          urlIndex++;
+          bytesDownloaded = 0;
+          dataBuffer = Buffer.alloc(0);
+          if (file) {
+            file.end();
+            file = null;
+          }
+          if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+          setTimeout(() => makeRequest(urls[urlIndex]), 100);
           return;
         }
         
-        // Check content length
-        const contentLength = parseInt(response.headers['content-length'] || '0', 10);
-        
         response.on('data', (chunk) => {
           bytesDownloaded += chunk.length;
-          file.write(chunk);
+          dataBuffer = Buffer.concat([dataBuffer, chunk]);
+          if (file) {
+            file.write(chunk);
+          }
         });
         
         response.on('end', () => {
-          file.end();
-          // Verify we actually downloaded something
-          if (bytesDownloaded > 100) { // At least 100 bytes
+          if (file) {
+            file.end();
+            file = null;
+          }
+          
+          // Check if we got valid image data
+          const isValidImage = bytesDownloaded > 1000 && 
+            (dataBuffer[0] === 0xFF && dataBuffer[1] === 0xD8) || // JPEG
+            (dataBuffer[0] === 0x89 && dataBuffer[1] === 0x50) || // PNG
+            dataBuffer.toString('ascii', 0, 4) === 'ftyp'; // HEIC/MP4
+          
+          if (isValidImage) {
             resolve(true);
+          } else if (urlIndex < urls.length - 1) {
+            // Try next URL
+            urlIndex++;
+            bytesDownloaded = 0;
+            dataBuffer = Buffer.alloc(0);
+            cleanup();
+            setTimeout(() => makeRequest(urls[urlIndex]), 100);
           } else {
-            console.error(`      Warning: Downloaded only ${bytesDownloaded} bytes for ${fileName}`);
-            fs.unlinkSync(outputPath);
+            console.error(`      Warning: Downloaded ${bytesDownloaded} bytes but not a valid image for ${fileName}`);
+            cleanup();
             resolve(false);
           }
         });
         
         response.on('error', (error) => {
-          console.error(`      Download error:`, error);
-          fs.unlinkSync(outputPath);
-          resolve(false);
+          if (urlIndex < urls.length - 1) {
+            urlIndex++;
+            cleanup();
+            setTimeout(() => makeRequest(urls[urlIndex]), 100);
+          } else {
+            console.error(`      Download error:`, error.message);
+            cleanup();
+            resolve(false);
+          }
         });
-      }).on('error', (error) => {
-        console.error(`      Request error:`, error);
-        fs.unlinkSync(outputPath);
-        resolve(false);
+      });
+      
+      request.on('error', (error) => {
+        if (urlIndex < urls.length - 1) {
+          urlIndex++;
+          cleanup();
+          setTimeout(() => makeRequest(urls[urlIndex]), 500);
+        } else {
+          console.error(`      Request error:`, error.message);
+          cleanup();
+          resolve(false);
+        }
+      });
+      
+      request.setTimeout(30000, () => {
+        request.destroy();
+        if (urlIndex < urls.length - 1) {
+          urlIndex++;
+          cleanup();
+          makeRequest(urls[urlIndex]);
+        } else {
+          cleanup();
+          resolve(false);
+        }
       });
     };
     
-    makeRequest(url);
+    makeRequest(urls[0]);
   });
 }
 
@@ -266,12 +351,40 @@ async function migrateCategory(
     
     console.log(`   [${i + 1}/${files.length}] Processing: ${file.name}`);
 
-    // Check if already uploaded
+    // Check if already uploaded and has content
     const exists = await fileExistsInR2(client, bucketName, key);
     if (exists) {
-      console.log(`      ✓ Already exists in R2, skipping`);
-      stats.skipped++;
-      continue;
+      // Check file size - if it's 0 or very small, re-upload
+      try {
+        const headCommand = new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: key,
+        });
+        const headResponse = await client.send(headCommand);
+        const fileSize = headResponse.ContentLength || 0;
+        
+        if (fileSize > 1000) { // File has content (>1KB)
+          console.log(`      ✓ Already exists in R2 (${(fileSize / 1024).toFixed(1)}KB), skipping`);
+          stats.skipped++;
+          continue;
+        } else {
+          console.log(`      ⚠ File exists but is empty/small (${fileSize} bytes), re-uploading...`);
+          // Delete empty file first
+          try {
+            const deleteCommand = new DeleteObjectCommand({
+              Bucket: bucketName,
+              Key: key,
+            });
+            await client.send(deleteCommand);
+            console.log(`      ✓ Deleted empty file`);
+          } catch (deleteError) {
+            console.log(`      ⚠ Could not delete empty file, will overwrite`);
+          }
+        }
+      } catch (error) {
+        // If we can't check size, try to re-upload
+        console.log(`      ⚠ Could not verify file size, re-uploading...`);
+      }
     }
 
     // Download from Drive
