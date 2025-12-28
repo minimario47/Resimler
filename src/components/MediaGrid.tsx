@@ -69,7 +69,7 @@ export default function MediaGrid({ media, gridSize = 'normal' }: MediaGridProps
             >
               {/* Image */}
               <div
-                className="relative"
+                className="relative bg-slate/5"
                 style={{
                   aspectRatio: `${item.width} / ${item.height}`,
                 }}
@@ -79,6 +79,16 @@ export default function MediaGrid({ media, gridSize = 'normal' }: MediaGridProps
                   alt={item.title}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    // Fallback to small thumbnail if medium fails
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== item.thumbnails.small) {
+                      target.src = item.thumbnails.small;
+                    } else {
+                      // Final fallback to original URL
+                      target.src = item.original_url;
+                    }
+                  }}
                 />
 
                 {/* Hover overlay */}

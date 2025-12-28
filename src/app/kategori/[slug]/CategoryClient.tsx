@@ -33,10 +33,16 @@ export default function CategoryClient({ category }: CategoryClientProps) {
 
       {/* Hero banner */}
       <div
-        className="relative h-48 md:h-64 bg-cover bg-center"
+        className="relative h-48 md:h-64 bg-cover bg-center bg-slate/10"
         style={{ backgroundImage: `url(${category.cover_image})` }}
+        role="img"
+        aria-label={`${category.name} kategorisi kapak görseli`}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        {/* Fallback background color */}
+        <div className="absolute inset-0 bg-slate/5" />
+        {/* Loading placeholder */}
+        <div className="absolute inset-0 skeleton" />
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
           <div className="max-w-[1200px] mx-auto">
             <h1 className="font-serif text-2xl md:text-3xl font-bold text-white">

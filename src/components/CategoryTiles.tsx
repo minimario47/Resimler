@@ -26,16 +26,22 @@ export default function CategoryTiles({ categories }: CategoryTilesProps) {
               <Link
                 href={`/kategori/${category.slug}`}
                 className="block group"
+                aria-label={`${category.name} galerisini görüntüle`}
               >
                 <div className="relative rounded-2xl overflow-hidden bg-slate/5 shadow-md hover:shadow-xl transition-shadow">
                   {/* Cover image */}
-                  <div className="aspect-[4/3] relative">
+                  <div className="aspect-[4/3] relative bg-slate/10">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={category.cover_image}
                       alt={category.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/800x600?text=' + encodeURIComponent(category.name);
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   </div>

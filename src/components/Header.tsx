@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Menu, Heart, X, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { categories } from '@/data/mock-data';
@@ -19,6 +20,7 @@ export default function Header({
   title,
   onBackClick 
 }: HeaderProps) {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -47,7 +49,7 @@ export default function Header({
             <div className="flex items-center gap-2">
               {showBack ? (
                 <button
-                  onClick={onBackClick || (() => window.history.back())}
+                  onClick={onBackClick || (() => router.push('/'))}
                   className="p-2 -ml-2 rounded-full hover:bg-slate/10 transition-colors"
                   aria-label="Geri"
                 >
@@ -77,7 +79,7 @@ export default function Header({
             </div>
 
             {/* Center - Desktop nav */}
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="hidden md:flex items-center gap-6" aria-label="Ana navigasyon">
               {categories.map((cat) => (
                 <Link
                   key={cat.id}
@@ -85,6 +87,7 @@ export default function Header({
                   className={`text-sm font-medium hover:text-accent transition-colors ${
                     shouldBeSolid ? 'text-slate' : 'text-white/90 hover:text-white'
                   }`}
+                  aria-label={`${cat.name} sayfasına git`}
                 >
                   {cat.name}
                 </Link>

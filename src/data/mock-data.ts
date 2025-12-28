@@ -1,4 +1,5 @@
 import { Category } from '@/types';
+import { getCategoryCoverImage, getCategoryFeaturedThumbnails } from '@/lib/category-images';
 
 // Google Drive folder IDs for each category
 export const DRIVE_FOLDERS = {
@@ -15,9 +16,12 @@ export const categories: Category[] = [
     slug: 'dugunden-once',
     description: 'Hazırlıklar, gelin alayı ve özel anlar',
     date_range: '24-25 Aralık 2025',
-    cover_image: `https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w800`,
+    cover_image: getCategoryCoverImage(
+      'dugunden-once',
+      'https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w800'
+    ),
     media_count: 0,
-    featured_thumbnails: [],
+    featured_thumbnails: getCategoryFeaturedThumbnails('dugunden-once', 3),
     drive_folder_id: DRIVE_FOLDERS['dugunden-once'],
   },
   {
@@ -26,9 +30,12 @@ export const categories: Category[] = [
     slug: 'kina-gecesi',
     description: 'Geleneksel kına töreni ve eğlence',
     date_range: '26 Aralık 2025',
-    cover_image: `https://drive.google.com/thumbnail?id=1JeSgvgoyDTWmWZjLgXFgRKaUPqCrko_U&sz=w800`,
+    cover_image: getCategoryCoverImage(
+      'kina-gecesi',
+      'https://drive.google.com/thumbnail?id=1JeSgvgoyDTWmWZjLgXFgRKaUPqCrko_U&sz=w800'
+    ),
     media_count: 0,
-    featured_thumbnails: [],
+    featured_thumbnails: getCategoryFeaturedThumbnails('kina-gecesi', 3),
     drive_folder_id: DRIVE_FOLDERS['kina-gecesi'],
   },
   {
@@ -37,9 +44,12 @@ export const categories: Category[] = [
     slug: 'dugun',
     description: 'Nikah ve düğün töreni',
     date_range: '27 Aralık 2025',
-    cover_image: `https://drive.google.com/thumbnail?id=1ZzbzNkvAbbFt41AanPlgWYMyVUJmrvhP&sz=w800`,
+    cover_image: getCategoryCoverImage(
+      'dugun',
+      'https://drive.google.com/thumbnail?id=1ZzbzNkvAbbFt41AanPlgWYMyVUJmrvhP&sz=w800'
+    ),
     media_count: 0,
-    featured_thumbnails: [],
+    featured_thumbnails: getCategoryFeaturedThumbnails('dugun', 3),
     drive_folder_id: DRIVE_FOLDERS['dugun'],
   },
 ];

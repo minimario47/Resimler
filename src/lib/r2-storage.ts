@@ -95,27 +95,17 @@ export function getR2Urls(key: string, config?: R2Config): {
  */
 export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]> {
   try {
-    // Try to load from static metadata file (for static exports)
-    try {
-      const metadata = await import('@/data/r2-metadata.json');
-      const category = metadata.categories?.find((cat: any) => cat.categoryId === categoryId);
-      if (category && category.files) {
-        return category.files;
-      }
-    } catch {
-      // Metadata file doesn't exist, try API route (for dev server)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
-      const response = await fetch(`${apiUrl}/r2/category/${categoryId}`);
-      
-      if (response.ok) {
-        const files: R2File[] = await response.json();
-        return files;
-      }
+    // Load from static metadata file
+    const metadata = await import('@/data/r2-metadata.json');
+    const category = metadata.categories?.find((cat: any) => cat.categoryId === categoryId);
+    
+    if (category && category.files) {
+      return category.files;
     }
     
     return [];
   } catch (error) {
-    console.error('Error fetching R2 category files:', error);
+    console.warn('R2 metadata file not found, returning empty array:', error);
     return [];
   }
 }
