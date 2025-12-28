@@ -104,6 +104,15 @@ export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]
       ? window.location.pathname.split('/').slice(0, -1).filter(p => p && p !== 'kategori').join('/') || ''
       : '';
     
+    interface CategoryData {
+      categoryId: string;
+      files: R2File[];
+    }
+    
+    interface MetadataShape {
+      categories?: CategoryData[];
+    }
+    
     // Try multiple paths for compatibility
     const paths = [
       `${basePath}/r2-metadata.json`,
@@ -112,16 +121,16 @@ export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]
       `${basePath}/_next/static/data/r2-metadata.json`,
     ];
     
-    let metadata: any = null;
+    let metadata: MetadataShape | null = null;
     
-    for (const path of paths) {
+    for (const metadataPath of paths) {
       try {
-        const response = await fetch(path);
+        const response = await fetch(metadataPath);
         if (response.ok) {
-          metadata = await response.json();
+          metadata = await response.json() as MetadataShape;
           break;
         }
-      } catch (e) {
+      } catch {
         continue;
       }
     }
@@ -129,14 +138,17 @@ export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]
     // Fallback: try dynamic import (works in dev)
     if (!metadata) {
       try {
-        metadata = await import('@/data/r2-metadata.json');
-      } catch (e) {
+        const imported = await import('@/data/r2-metadata.json');
+        metadata = imported as MetadataShape;
+      } catch {
         console.warn('Failed to load R2 metadata from all sources');
       }
     }
     
-    if (metadata && metadata.categories) {
-      const category = metadata.categories.find((cat: any) => cat.categoryId === categoryId);
+    const typedMetadata = metadata;
+    
+    if (typedMetadata && typedMetadata.categories) {
+      const category = typedMetadata.categories.find((cat) => cat.categoryId === categoryId);
       if (category && category.files) {
         return category.files;
       }

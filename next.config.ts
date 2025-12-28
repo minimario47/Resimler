@@ -31,10 +31,6 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  // Explicitly use webpack instead of Turbopack
-  experimental: {
-    turbo: undefined,
-  },
 };
 
 export default nextConfig;

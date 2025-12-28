@@ -2,6 +2,8 @@
  * Helper functions to get category cover images from R2 metadata
  */
 
+import r2MetadataJson from '@/data/r2-metadata.json';
+
 interface R2Metadata {
   categories: Array<{
     categoryId: string;
@@ -13,26 +15,11 @@ interface R2Metadata {
   }>;
 }
 
-// Lazy load metadata to avoid issues if file doesn't exist
-let metadata: R2Metadata | null = null;
-
+// Get metadata from static import
 function getMetadata(): R2Metadata | null {
-  if (metadata) return metadata;
-  
   try {
-    // Use dynamic import for better compatibility
-    if (typeof window === 'undefined') {
-      // Server-side: use require
-      const r2Metadata = require('@/data/r2-metadata.json');
-      metadata = r2Metadata as R2Metadata;
-    } else {
-      // Client-side: metadata should be imported at build time
-      // This will be handled by Next.js static imports
-      return null;
-    }
-    return metadata;
-  } catch (error) {
-    // Metadata file doesn't exist or can't be loaded
+    return r2MetadataJson as R2Metadata;
+  } catch {
     return null;
   }
 }

@@ -20,6 +20,7 @@ env:
   R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
   R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
   R2_PUBLIC_URL: https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev
+  GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
 
 jobs:
   build-and-deploy:
@@ -37,16 +38,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Migrate Photos to R2
+        run: npm run migrate:r2
+        continue-on-error: true
+        timeout-minutes: 30
+
       - name: Generate R2 Metadata
         run: npm run generate:r2-metadata
         continue-on-error: true
 
       - name: Copy R2 Metadata to Public
-        run: cp src/data/r2-metadata.json public/r2-metadata.json || echo "Metadata file not found, skipping"
+        run: |
+          if [ -f "src/data/r2-metadata.json" ]; then
+            cp src/data/r2-metadata.json public/r2-metadata.json
+            echo "✓ Copied r2-metadata.json to public/"
+          else
+            echo "⚠ Metadata file not found, skipping"
+          fi
         continue-on-error: true
 
       - name: Build
-        run: NEXT_PUBLIC_REPO_NAME=Resimler NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev npm run build -- --webpack
+        run: npm run build
+
+      - name: Verify Build Output
+        run: |
+          echo "=== Checking build output ==="
+          ls -la out/
+          if [ -f "out/index.html" ]; then
+            echo "✓ index.html exists"
+          else
+            echo "✗ index.html missing!"
+            exit 1
+          fi
+          if [ -f "out/.nojekyll" ]; then
+            echo "✓ .nojekyll exists"
+          else
+            echo "Creating .nojekyll..."
+            touch out/.nojekyll
+          fi
+          echo "=== Build verification complete ==="
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
