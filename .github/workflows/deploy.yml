@@ -41,6 +41,10 @@ jobs:
         run: npm run generate:r2-metadata
         continue-on-error: true
 
+      - name: Copy R2 Metadata to Public
+        run: cp src/data/r2-metadata.json public/r2-metadata.json || echo "Metadata file not found, skipping"
+        continue-on-error: true
+
       - name: Build
         run: npm run build
 
