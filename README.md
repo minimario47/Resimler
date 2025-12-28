@@ -131,9 +131,35 @@ Mock verileri kendi fotoğraflarınızla değiştirmek için:
 2. Görsel URL'lerini kendi fotoğraflarınızla değiştirin
 3. Google Drive veya iCloud'dan paylaşım linkleri kullanabilirsiniz
 
+### ⚡ Google Drive'dan Cloudflare R2'ye Geçiş (Önerilen)
+
+Google Drive fotoğrafları yavaş yükleniyorsa, Cloudflare R2'ye geçiş yapabilirsiniz. R2 çok daha hızlı CDN desteği sunar.
+
+**Hızlı Başlangıç:**
+
+1. Cloudflare R2 bucket oluşturun (ücretsiz)
+2. R2 API credentials alın
+3. Environment variables ayarlayın:
+   ```bash
+   export R2_ACCOUNT_ID='your-account-id'
+   export R2_ACCESS_KEY_ID='your-access-key-id'
+   export R2_SECRET_ACCESS_KEY='your-secret-key'
+   export R2_BUCKET_NAME='your-bucket-name'
+   export R2_PUBLIC_URL='https://your-bucket.r2.dev'
+   export NEXT_PUBLIC_R2_PUBLIC_URL='https://your-bucket.r2.dev'
+   ```
+4. Migration script'ini çalıştırın:
+   ```bash
+   npm run migrate:r2
+   ```
+
+Detaylı talimatlar için `MIGRATION_GUIDE.md` dosyasına bakın.
+
+**Otomatik Geçiş:** Uygulama otomatik olarak R2 yapılandırmasını algılar ve kullanır. R2 yoksa Google Drive'a geri döner.
+
 ### iCloud Entegrasyonu Uyarısı
 
-iCloud paylaşımlı albüm linkleri direkt dosya erişimi sağlamayabilir. Google Drive kullanmanız önerilir.
+iCloud paylaşımlı albüm linkleri direkt dosya erişimi sağlamayabilir. Google Drive veya Cloudflare R2 kullanmanız önerilir.
 
 ## 🔧 Özelleştirme
 

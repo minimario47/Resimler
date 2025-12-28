@@ -1,15 +1,26 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import DriveGallery from '@/components/DriveGallery';
+import R2Gallery from '@/components/R2Gallery';
 import Footer from '@/components/Footer';
 import { Category } from '@/types';
+import { getR2Config } from '@/lib/r2-storage';
 
 interface CategoryClientProps {
   category: Category;
 }
 
 export default function CategoryClient({ category }: CategoryClientProps) {
+  const [useR2, setUseR2] = useState(false);
+  
+  // Check if R2 is configured
+  useEffect(() => {
+    const r2Config = getR2Config();
+    setUseR2(r2Config !== null);
+  }, []);
+
   // Extract date from date_range for the photos
   const categoryDate = category.date_range.includes('24') ? '2025-12-24' :
                        category.date_range.includes('25') ? '2025-12-25' :
@@ -43,7 +54,13 @@ export default function CategoryClient({ category }: CategoryClientProps) {
 
       {/* Content area */}
       <div className="max-w-[1200px] mx-auto px-4 py-6">
-        {category.drive_folder_id ? (
+        {useR2 ? (
+          <R2Gallery
+            categoryId={category.id}
+            categoryName={category.name}
+            categoryDate={categoryDate}
+          />
+        ) : category.drive_folder_id ? (
           <DriveGallery
             folderId={category.drive_folder_id}
             categoryId={category.id}

@@ -6,3 +6,5 @@ export { default as Footer } from './Footer';
 export { default as MediaGrid } from './MediaGrid';
 export { default as Lightbox } from './Lightbox';
 export { default as GridControls } from './GridControls';
+export { default as DriveGallery } from './DriveGallery';
+export { default as R2Gallery } from './R2Gallery';
