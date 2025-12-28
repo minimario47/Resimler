@@ -114,37 +114,68 @@ async function fetchDriveFolderFiles(folderId: string): Promise<DriveFile[]> {
   }
 }
 
-// Download file from Google Drive
+// Download file from Google Drive with proper handling
 async function downloadDriveFile(fileId: string, fileName: string, outputPath: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    // Use the view URL which is more reliable for direct downloads
+    const url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
     
     const file = fs.createWriteStream(outputPath);
+    let bytesDownloaded = 0;
     
-    https.get(url, (response) => {
-      // Handle redirects
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        https.get(response.headers.location!, (redirectResponse) => {
-          redirectResponse.pipe(file);
-          file.on('finish', () => {
-            file.close();
+    const makeRequest = (requestUrl: string, followRedirects = true): void => {
+      https.get(requestUrl, (response) => {
+        // Handle redirects
+        if ((response.statusCode === 302 || response.statusCode === 301) && followRedirects) {
+          const location = response.headers.location;
+          if (location) {
+            makeRequest(location, true);
+            return;
+          }
+        }
+        
+        // Check if we got HTML instead of the file (Google Drive warning page)
+        const contentType = response.headers['content-type'] || '';
+        if (contentType.includes('text/html')) {
+          // Try alternative download method
+          const altUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+          makeRequest(altUrl, false);
+          return;
+        }
+        
+        // Check content length
+        const contentLength = parseInt(response.headers['content-length'] || '0', 10);
+        
+        response.on('data', (chunk) => {
+          bytesDownloaded += chunk.length;
+          file.write(chunk);
+        });
+        
+        response.on('end', () => {
+          file.end();
+          // Verify we actually downloaded something
+          if (bytesDownloaded > 100) { // At least 100 bytes
             resolve(true);
-          });
-        }).on('error', () => {
+          } else {
+            console.error(`      Warning: Downloaded only ${bytesDownloaded} bytes for ${fileName}`);
+            fs.unlinkSync(outputPath);
+            resolve(false);
+          }
+        });
+        
+        response.on('error', (error) => {
+          console.error(`      Download error:`, error);
           fs.unlinkSync(outputPath);
           resolve(false);
         });
-      } else {
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve(true);
-        });
-      }
-    }).on('error', () => {
-      fs.unlinkSync(outputPath);
-      resolve(false);
-    });
+      }).on('error', (error) => {
+        console.error(`      Request error:`, error);
+        fs.unlinkSync(outputPath);
+        resolve(false);
+      });
+    };
+    
+    makeRequest(url);
   });
 }
 
