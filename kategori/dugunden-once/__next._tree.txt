@@ -1,0 +1,4 @@
+:HL["/Resimler/_next/static/media/e4af272ccee01ff0-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/Resimler/_next/static/media/eaead17c7dbfcd5d-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/Resimler/_next/static/css/7c0d56d82cc33f34.css","style"]
+0:{"buildId":"q8kPOc_wisOQ7PNnNs1bJ","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"kategori","paramType":null,"paramKey":"kategori","hasRuntimePrefetch":false,"slots":{"children":{"name":"slug","paramType":"d","paramKey":"dugunden-once","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
