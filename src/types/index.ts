@@ -10,6 +10,7 @@ export interface MediaItem {
   source: MediaSource;
   source_url?: string;
   thumbnails: {
+    placeholder?: string; // Tiny blur-up placeholder
     small: string;
     medium: string;
     large: string;

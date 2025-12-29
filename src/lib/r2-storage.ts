@@ -59,16 +59,79 @@ export function getR2Config(): R2Config | null {
 }
 
 /**
- * Generate R2 URLs for a file
+ * Image quality/size presets for progressive loading
+ * These work with Cloudflare Image Resizing when using a custom domain
+ */
+export interface ImageSizePreset {
+  width: number;
+  quality: number;
+  fit?: 'cover' | 'contain' | 'scale-down';
+}
+
+export const IMAGE_PRESETS = {
+  // Tiny placeholder - very small, heavily compressed for blur-up effect
+  placeholder: { width: 20, quality: 20, fit: 'cover' as const },
+  // Small thumbnail - for grid preview on slow connections
+  small: { width: 200, quality: 60, fit: 'cover' as const },
+  // Medium thumbnail - standard grid view
+  medium: { width: 400, quality: 75, fit: 'cover' as const },
+  // Large - lightbox preview
+  large: { width: 800, quality: 80, fit: 'cover' as const },
+  // Full quality - original for download/zoom
+  full: { width: 1920, quality: 90, fit: 'scale-down' as const },
+};
+
+/**
+ * Generate optimized R2 URL with Cloudflare Image Resizing parameters
+ * 
+ * For this to work with resizing, you need one of:
+ * 1. Custom domain with Cloudflare Image Resizing enabled
+ * 2. Cloudflare Worker for image transformation
+ * 
+ * If using pub-*.r2.dev URLs, the params will be ignored but URLs remain valid.
+ * The strategy is to have the infrastructure ready for when resizing is enabled.
+ */
+export function getOptimizedUrl(
+  baseUrl: string,
+  key: string,
+  preset: ImageSizePreset
+): string {
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  const originalUrl = `${cleanBaseUrl}/${key}`;
+  
+  // Check if using a custom domain (not r2.dev) which supports Image Resizing
+  const isCustomDomain = !cleanBaseUrl.includes('.r2.dev');
+  
+  if (isCustomDomain) {
+    // Use Cloudflare Image Resizing URL format
+    // Format: /cdn-cgi/image/OPTIONS/IMAGE_URL
+    const options = `w=${preset.width},q=${preset.quality},fit=${preset.fit || 'cover'},f=auto`;
+    return `${cleanBaseUrl}/cdn-cgi/image/${options}/${key}`;
+  }
+  
+  // For r2.dev URLs, append query params as hints for future compatibility
+  // These won't resize now but document intent and work if Worker is added
+  const params = new URLSearchParams({
+    w: preset.width.toString(),
+    q: preset.quality.toString(),
+  });
+  
+  return `${originalUrl}?${params.toString()}`;
+}
+
+/**
+ * Generate R2 URLs for a file with multiple size variants
  */
 export function getR2Urls(key: string, config?: R2Config): {
   thumbnail: {
+    placeholder: string;
     small: string;
     medium: string;
     large: string;
   };
   view: string;
   download: string;
+  original: string;
 } {
   const r2Config = config || getR2Config();
   if (!r2Config) {
@@ -76,16 +139,18 @@ export function getR2Urls(key: string, config?: R2Config): {
   }
   
   const baseUrl = r2Config.publicUrl.replace(/\/$/, '');
-  const fileUrl = `${baseUrl}/${key}`;
+  const originalUrl = `${baseUrl}/${key}`;
   
   return {
     thumbnail: {
-      small: fileUrl, // R2 can serve optimized thumbnails if configured
-      medium: fileUrl,
-      large: fileUrl,
+      placeholder: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.placeholder),
+      small: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.small),
+      medium: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.medium),
+      large: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.large),
     },
-    view: fileUrl,
-    download: fileUrl,
+    view: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.large),
+    download: originalUrl, // Always use original for downloads
+    original: originalUrl, // Full quality original
   };
 }
 

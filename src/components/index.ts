@@ -8,3 +8,5 @@ export { default as Lightbox } from './Lightbox';
 export { default as GridControls } from './GridControls';
 export { default as DriveGallery } from './DriveGallery';
 export { default as R2Gallery } from './R2Gallery';
+export { ProgressiveImage } from './ProgressiveImage';
+export { default as ServiceWorkerRegistration } from './ServiceWorkerRegistration';
