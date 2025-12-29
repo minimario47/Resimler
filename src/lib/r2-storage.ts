@@ -60,7 +60,11 @@ export function getR2Config(): R2Config | null {
 
 /**
  * Image quality/size presets for progressive loading
- * These work with Cloudflare Image Resizing when using a custom domain
+ * Optimized for slow internet connections (Turkey)
+ * 
+ * Strategy:
+ * - Grid view: Very low quality (~20% of original) for fast loading
+ * - Lightbox: Full quality only when user clicks
  */
 export interface ImageSizePreset {
   width: number;
@@ -69,16 +73,21 @@ export interface ImageSizePreset {
 }
 
 export const IMAGE_PRESETS = {
-  // Tiny placeholder - very small, heavily compressed for blur-up effect
-  placeholder: { width: 20, quality: 20, fit: 'cover' as const },
-  // Small thumbnail - for grid preview on slow connections
-  small: { width: 200, quality: 60, fit: 'cover' as const },
-  // Medium thumbnail - standard grid view
-  medium: { width: 400, quality: 75, fit: 'cover' as const },
-  // Large - lightbox preview
-  large: { width: 800, quality: 80, fit: 'cover' as const },
-  // Full quality - original for download/zoom
-  full: { width: 1920, quality: 90, fit: 'scale-down' as const },
+  // Tiny placeholder - blur-up effect (< 1KB)
+  placeholder: { width: 16, quality: 10, fit: 'cover' as const },
+  
+  // Grid thumbnails - very low quality for fast loading (~20-50KB)
+  // These are what users see in galleries before clicking
+  thumb: { width: 250, quality: 35, fit: 'cover' as const },
+  
+  // Medium - slightly better for larger grid views (~50-100KB)
+  medium: { width: 350, quality: 45, fit: 'cover' as const },
+  
+  // Preview - shown in lightbox while full quality loads (~100-200KB)
+  preview: { width: 600, quality: 55, fit: 'scale-down' as const },
+  
+  // Full quality - only loaded when user clicks to view (~500KB-2MB)
+  full: { width: 1600, quality: 85, fit: 'scale-down' as const },
 };
 
 /**
@@ -126,17 +135,20 @@ export function getOptimizedUrl(
 
 /**
  * Generate R2 URLs for a file with multiple size variants
+ * 
+ * Grid view uses very low quality (thumb) for fast loading
+ * Full quality only loaded in lightbox when user clicks
  */
 export function getR2Urls(key: string, config?: R2Config): {
   thumbnail: {
     placeholder: string;
-    small: string;
-    medium: string;
-    large: string;
+    small: string;    // For grid - very low quality
+    medium: string;   // For larger grid - low quality
+    large: string;    // For lightbox preview
   };
-  view: string;
-  download: string;
-  original: string;
+  view: string;       // Lightbox preview
+  download: string;   // Full quality for download
+  original: string;   // Full quality original
 } {
   const r2Config = config || getR2Config();
   if (!r2Config) {
@@ -149,13 +161,13 @@ export function getR2Urls(key: string, config?: R2Config): {
   return {
     thumbnail: {
       placeholder: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.placeholder),
-      small: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.small),
-      medium: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.medium),
-      large: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.large),
+      small: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.thumb),      // Very low quality for grid
+      medium: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.medium),    // Low quality for grid
+      large: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.preview),    // Preview for lightbox
     },
-    view: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.large),
-    download: originalUrl, // Always use original for downloads
-    original: originalUrl, // Full quality original
+    view: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.preview),       // Lightbox preview
+    download: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.full),      // Full quality
+    original: originalUrl,                                             // Original (unresized)
   };
 }
 

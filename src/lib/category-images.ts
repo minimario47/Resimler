@@ -33,15 +33,16 @@ function getMetadata(): R2Metadata | null {
 
 /**
  * Convert R2 file to Worker URL with size params
+ * Uses low quality by default for fast loading
  */
-function getOptimizedUrl(file: R2File, width: number = 800, quality: number = 75): string {
+function getOptimizedUrl(file: R2File, width: number = 300, quality: number = 40): string {
   // Use the key to build Worker URL
   return `${WORKER_URL}/${file.key}?w=${width}&q=${quality}`;
 }
 
 /**
  * Get cover image URL for a category from R2 metadata
- * Uses Worker URL for optimized delivery
+ * Uses low quality (40%) for fast loading on category tiles
  */
 export function getCategoryCoverImage(categoryId: string): string {
   try {
@@ -57,7 +58,8 @@ export function getCategoryCoverImage(categoryId: string): string {
       );
       
       const file = jpegFile || category.files[0];
-      return getOptimizedUrl(file, 800, 75);
+      // Low quality for category cover (fast loading)
+      return getOptimizedUrl(file, 500, 40);
     }
   } catch (error) {
     console.warn('Failed to get R2 cover image:', error);
@@ -68,7 +70,7 @@ export function getCategoryCoverImage(categoryId: string): string {
 
 /**
  * Get featured thumbnails for a category
- * Uses Worker URL for optimized delivery
+ * Uses very low quality (35%) for fast loading
  */
 export function getCategoryFeaturedThumbnails(categoryId: string, count: number = 3): string[] {
   try {
@@ -87,7 +89,7 @@ export function getCategoryFeaturedThumbnails(categoryId: string, count: number 
       
       return filesToUse
         .slice(0, count)
-        .map(f => getOptimizedUrl(f, 400, 70));
+        .map(f => getOptimizedUrl(f, 250, 35));
     }
   } catch (error) {
     console.warn('Failed to get R2 featured thumbnails:', error);
@@ -98,6 +100,7 @@ export function getCategoryFeaturedThumbnails(categoryId: string, count: number 
 
 /**
  * Get hero image for the home page
+ * Uses moderate quality (50%) - hero is important but should still load fast
  */
 export function getHeroImage(): string {
   try {
@@ -113,7 +116,8 @@ export function getHeroImage(): string {
         /\.(jpg|jpeg|png|webp)$/i.test(f.name)
       );
       const file = jpegFile || firstCategory.files[0];
-      return getOptimizedUrl(file, 1920, 80);
+      // Hero image: wider but lower quality for fast loading
+      return getOptimizedUrl(file, 1200, 50);
     }
   } catch (error) {
     console.warn('Failed to get hero image:', error);
@@ -124,13 +128,14 @@ export function getHeroImage(): string {
 
 /**
  * Get featured images for carousel on home page
+ * Uses low quality (40%) for fast loading
  */
-export function getFeaturedImages(): Array<{ id: string; name: string; thumbnailUrl: string }> {
+export function getFeaturedImages(): Array<{ id: string; name: string; thumbnailUrl: string; key: string }> {
   try {
     const metadata = getMetadata();
     if (!metadata) return [];
     
-    const allImages: Array<{ id: string; name: string; thumbnailUrl: string }> = [];
+    const allImages: Array<{ id: string; name: string; thumbnailUrl: string; key: string }> = [];
     
     // Get a few images from each category
     for (const category of metadata.categories || []) {
@@ -146,7 +151,8 @@ export function getFeaturedImages(): Array<{ id: string; name: string; thumbnail
           allImages.push({
             id: `${category.categoryId}-${i}`,
             name: f.name,
-            thumbnailUrl: getOptimizedUrl(f, 800, 75),
+            key: f.key,
+            thumbnailUrl: getOptimizedUrl(f, 350, 40), // Low quality for carousel
           });
         });
       }

@@ -22,8 +22,12 @@ interface LightboxProps {
 
 /**
  * Progressive Lightbox Image Component
- * Loads images progressively: medium -> large -> original
- * Shows the best available quality while loading higher resolution
+ * 
+ * Loading stages:
+ * 1. Show blurred placeholder immediately
+ * 2. Show medium quality (from grid cache) 
+ * 3. Load preview quality (600px)
+ * 4. Load full quality (1600px) - only in lightbox!
  */
 const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
   item,
@@ -33,30 +37,43 @@ const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
   onLoad: () => void;
 }) {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-  const [loadingStage, setLoadingStage] = useState<'medium' | 'large' | 'done'>('medium');
+  const [loadingStage, setLoadingStage] = useState<'preview' | 'full' | 'done'>('preview');
   
-  // Start with medium quality (already cached from grid view)
   useEffect(() => {
-    // Immediately show medium quality (should be in browser cache)
+    let cancelled = false;
+    
+    // Stage 1: Show medium quality immediately (should be cached from grid)
     const mediumImg = new Image();
     mediumImg.onload = () => {
+      if (cancelled) return;
       setLoadedSrc(item.thumbnails.medium);
-      setLoadingStage('large');
       onLoad();
     };
     mediumImg.src = item.thumbnails.medium;
     
-    // Then load large quality in background
-    const largeImg = new Image();
-    largeImg.onload = () => {
-      setLoadedSrc(item.thumbnails.large);
+    // Stage 2: Load preview quality (larger, better)
+    const previewImg = new Image();
+    previewImg.onload = () => {
+      if (cancelled) return;
+      setLoadedSrc(item.thumbnails.large); // large = preview quality
+      setLoadingStage('full');
+    };
+    previewImg.src = item.thumbnails.large;
+    
+    // Stage 3: Load full quality (only in lightbox!)
+    const fullImg = new Image();
+    fullImg.onload = () => {
+      if (cancelled) return;
+      setLoadedSrc(item.original_url); // Full quality
       setLoadingStage('done');
     };
-    largeImg.src = item.thumbnails.large;
+    fullImg.src = item.original_url;
     
     return () => {
+      cancelled = true;
       mediumImg.onload = null;
-      largeImg.onload = null;
+      previewImg.onload = null;
+      fullImg.onload = null;
     };
   }, [item, onLoad]);
 
@@ -85,9 +102,10 @@ const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
         />
       )}
       
-      {/* Quality indicator for debugging (hidden in production) */}
+      {/* Loading indicator while full quality loads */}
       {loadingStage !== 'done' && loadedSrc && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 rounded-full text-xs text-white/60">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 rounded-full text-xs text-white/60 flex items-center gap-2">
+          <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
           Yüksek kalite yükleniyor...
         </div>
       )}
