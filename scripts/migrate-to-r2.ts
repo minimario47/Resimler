@@ -185,11 +185,75 @@ function httpsRequest(url: string, options: https.RequestOptions = {}): Promise<
   });
 }
 
+// Check if file is HEIC format (browsers can't display natively)
+function isHeicFile(fileName: string): boolean {
+  return /\.heic$/i.test(fileName);
+}
+
+// Get the output filename - convert HEIC to JPEG
+function getOutputFileName(fileName: string): string {
+  if (isHeicFile(fileName)) {
+    return fileName.replace(/\.heic$/i, '.jpeg');
+  }
+  return fileName;
+}
+
 // Download file from Google Drive with proper handling for large files
+// For HEIC files, uses thumbnail API to get JPEG version
 async function downloadDriveFile(fileId: string, fileName: string, outputPath: string): Promise<boolean> {
   const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  const isHeic = isHeicFile(fileName);
   
-  // Strategy 1: Use Google Drive API with API key (most reliable for public files)
+  // For HEIC files, ALWAYS use thumbnail API first (converts to JPEG)
+  // This ensures browser compatibility
+  if (isHeic) {
+    console.log(`      Converting HEIC to JPEG via thumbnail API...`);
+  }
+  
+  // Strategy 1: Use Google Drive thumbnail API (works without authentication for public files)
+  // This is the most reliable method and converts HEIC to JPEG automatically
+  try {
+    // Use thumbnail API with maximum size - returns JPEG regardless of source format
+    const thumbnailUrls = [
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,  // Large thumbnail
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
+      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+    ];
+    
+    for (const url of thumbnailUrls) {
+      try {
+        const response = await httpsRequest(url);
+        
+        if (response.statusCode === 200 && response.data.length > 5000) {
+          // Verify it's an image (JPEG from thumbnail API)
+          const isValidImage = (
+            (response.data[0] === 0xFF && response.data[1] === 0xD8) || // JPEG
+            (response.data[0] === 0x89 && response.data[1] === 0x50) || // PNG
+            (response.data[0] === 0x47 && response.data[1] === 0x49 && response.data[2] === 0x46) // GIF
+          );
+          
+          if (isValidImage) {
+            fs.writeFileSync(outputPath, response.data);
+            console.log(`      ✓ Downloaded via thumbnail API (${(response.data.length / 1024).toFixed(1)}KB)${isHeic ? ' [HEIC→JPEG]' : ''}`);
+            return true;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    console.log(`      Thumbnail API failed`);
+  }
+  
+  // For HEIC files, don't try other methods as they won't convert to JPEG
+  if (isHeic) {
+    console.error(`      ✗ Failed to convert HEIC to JPEG for ${fileName}`);
+    return false;
+  }
+  
+  // Strategy 2: Use Google Drive API with API key (for non-HEIC files)
   if (apiKey) {
     try {
       // Get file metadata first
@@ -209,43 +273,6 @@ async function downloadDriveFile(fileId: string, fileName: string, outputPath: s
     } catch {
       console.log(`      API download failed, trying fallback methods...`);
     }
-  }
-  
-  // Strategy 2: Use Google Drive thumbnail API (works without authentication for public files)
-  // This is the most reliable method for public Google Drive files
-  try {
-    // Use thumbnail API with maximum size - this works reliably for public files
-    const thumbnailUrls = [
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,  // Large thumbnail
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
-      `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-    ];
-    
-    for (const url of thumbnailUrls) {
-      try {
-        const response = await httpsRequest(url);
-        
-        if (response.statusCode === 200 && response.data.length > 5000) {
-          // Verify it's an image (JPEG from thumbnail API)
-          const isImage = (
-            (response.data[0] === 0xFF && response.data[1] === 0xD8) || // JPEG
-            (response.data[0] === 0x89 && response.data[1] === 0x50) || // PNG
-            (response.data[0] === 0x47 && response.data[1] === 0x49 && response.data[2] === 0x46) // GIF
-          );
-          
-          if (isImage) {
-            fs.writeFileSync(outputPath, response.data);
-            console.log(`      ✓ Downloaded via thumbnail API (${(response.data.length / 1024).toFixed(1)}KB)`);
-            return true;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-  } catch {
-    console.log(`      Thumbnail API failed`);
   }
   
   // Strategy 3: Use lh3.googleusercontent.com (works for shared photos)
@@ -426,9 +453,12 @@ async function migrateCategory(
   // Process each file
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const key = `${categoryId}/${file.name}`;
+    const isHeic = isHeicFile(file.name);
+    const outputFileName = getOutputFileName(file.name);
+    const key = `${categoryId}/${outputFileName}`;
+    const originalKey = `${categoryId}/${file.name}`;
     
-    console.log(`   [${i + 1}/${files.length}] Processing: ${file.name}`);
+    console.log(`   [${i + 1}/${files.length}] Processing: ${file.name}${isHeic ? ' → ' + outputFileName : ''}`);
 
     // Check if already uploaded and has content
     const exists = await fileExistsInR2(client, bucketName, key);
@@ -456,18 +486,38 @@ async function migrateCategory(
             });
             await client.send(deleteCommand);
             console.log(`      ✓ Deleted empty file`);
-          } catch (deleteError) {
+          } catch {
             console.log(`      ⚠ Could not delete empty file, will overwrite`);
           }
         }
-      } catch (error) {
+      } catch {
         // If we can't check size, try to re-upload
         console.log(`      ⚠ Could not verify file size, re-uploading...`);
       }
     }
+    
+    // For HEIC files, also check/delete the old .HEIC file if it exists
+    if (isHeic && originalKey !== key) {
+      try {
+        const headCommand = new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: originalKey,
+        });
+        await client.send(headCommand);
+        // If it exists, delete it
+        console.log(`      Removing old HEIC file...`);
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: originalKey,
+        });
+        await client.send(deleteCommand);
+      } catch {
+        // Old file doesn't exist, that's fine
+      }
+    }
 
-    // Download from Drive
-    const tempPath = path.join(tempDir, `${file.id}_${file.name}`);
+    // Download from Drive (will convert HEIC to JPEG via thumbnail API)
+    const tempPath = path.join(tempDir, `${file.id}_${outputFileName}`);
     console.log(`      Downloading from Drive...`);
     
     const downloaded = await downloadDriveFile(file.id, file.name, tempPath);
@@ -478,9 +528,9 @@ async function migrateCategory(
       continue;
     }
 
-    // Upload to R2
+    // Upload to R2 with the new filename
     console.log(`      Uploading to R2...`);
-    const contentType = getContentType(file.name);
+    const contentType = isHeic ? 'image/jpeg' : getContentType(outputFileName);
     const uploaded = await uploadToR2(client, bucketName, key, tempPath, contentType);
     
     // Clean up temp file
