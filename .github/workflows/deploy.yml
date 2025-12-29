@@ -40,10 +40,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Migrate Photos to R2
-        run: npm run migrate:r2
-        continue-on-error: true
-        timeout-minutes: 30
+      # Photos already migrated to R2 - skip migration for faster deploys
+      # Uncomment below if you need to add new photos:
+      # - name: Migrate Photos to R2
+      #   run: npm run migrate:r2
+      #   continue-on-error: true
+      #   timeout-minutes: 30
 
       - name: Generate R2 Metadata
         run: npm run generate:r2-metadata
