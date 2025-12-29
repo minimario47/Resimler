@@ -103,11 +103,12 @@ export default function R2Gallery({ categoryId, categoryName, categoryDate = '20
       source: 'local', // R2 is treated as local storage
       source_url: urls.view,
       thumbnails: {
+        placeholder: urls.thumbnail.placeholder, // Tiny blur-up image
         small: urls.thumbnail.small,
         medium: urls.thumbnail.medium,
         large: urls.thumbnail.large,
       },
-      original_url: urls.download,
+      original_url: urls.original, // Use original for full quality
       width: 1920,
       height: randomHeight,
       tags: [categoryId],

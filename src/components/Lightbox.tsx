@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import {
   X,
@@ -20,6 +20,81 @@ interface LightboxProps {
   onClose: () => void;
 }
 
+/**
+ * Progressive Lightbox Image Component
+ * Loads images progressively: medium -> large -> original
+ * Shows the best available quality while loading higher resolution
+ */
+const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
+  item,
+  onLoad,
+}: {
+  item: MediaItem;
+  onLoad: () => void;
+}) {
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState<'medium' | 'large' | 'done'>('medium');
+  
+  // Start with medium quality (already cached from grid view)
+  useEffect(() => {
+    // Immediately show medium quality (should be in browser cache)
+    const mediumImg = new Image();
+    mediumImg.onload = () => {
+      setLoadedSrc(item.thumbnails.medium);
+      setLoadingStage('large');
+      onLoad();
+    };
+    mediumImg.src = item.thumbnails.medium;
+    
+    // Then load large quality in background
+    const largeImg = new Image();
+    largeImg.onload = () => {
+      setLoadedSrc(item.thumbnails.large);
+      setLoadingStage('done');
+    };
+    largeImg.src = item.thumbnails.large;
+    
+    return () => {
+      mediumImg.onload = null;
+      largeImg.onload = null;
+    };
+  }, [item, onLoad]);
+
+  return (
+    <>
+      {/* Blurred placeholder while loading */}
+      {!loadedSrc && item.thumbnails.placeholder && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.thumbnails.placeholder}
+          alt=""
+          aria-hidden="true"
+          className="max-w-full max-h-[85vh] object-contain blur-xl scale-105"
+          style={{ filter: 'blur(30px)' }}
+        />
+      )}
+      
+      {/* Main image with progressive quality upgrade */}
+      {loadedSrc && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={loadedSrc}
+          alt={`Fotoğraf`}
+          className="max-w-full max-h-[85vh] object-contain select-none transition-all duration-300"
+          draggable={false}
+        />
+      )}
+      
+      {/* Quality indicator for debugging (hidden in production) */}
+      {loadingStage !== 'done' && loadedSrc && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 rounded-full text-xs text-white/60">
+          Yüksek kalite yükleniyor...
+        </div>
+      )}
+    </>
+  );
+});
+
 export default function Lightbox({ media, initialIndex, onClose }: LightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -33,19 +108,25 @@ export default function Lightbox({ media, initialIndex, onClose }: LightboxProps
   const currentMedia = media[currentIndex];
   const isVideo = currentMedia.media_type === 'video';
 
-  // Preload adjacent images for smoother navigation (no setState, just side effect)
+  // Preload adjacent images for smoother navigation
+  // Preload medium quality first (fast), then large quality
   useEffect(() => {
     const indicesToPreload = [
       currentIndex - 1,
       currentIndex + 1,
       currentIndex + 2,
-      currentIndex - 2,
     ].filter(i => i >= 0 && i < media.length);
 
     indicesToPreload.forEach(index => {
       if (!preloadedImagesRef.current.has(index)) {
-        const img = new window.Image();
-        img.src = media[index].thumbnails.large;
+        // Preload medium quality first (smaller, faster)
+        const mediumImg = new window.Image();
+        mediumImg.src = media[index].thumbnails.medium;
+        
+        // Then preload large quality
+        const largeImg = new window.Image();
+        largeImg.src = media[index].thumbnails.large;
+        
         preloadedImagesRef.current.add(index);
       }
     });
@@ -261,9 +342,9 @@ export default function Lightbox({ media, initialIndex, onClose }: LightboxProps
           }
         }}
       >
-        {/* Loading indicator */}
+        {/* Loading indicator - only show if nothing is loaded yet */}
         {!imageLoaded && !isVideo && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center z-0">
             <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         )}
@@ -291,14 +372,10 @@ export default function Lightbox({ media, initialIndex, onClose }: LightboxProps
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={currentMedia.thumbnails.large}
-              alt={`Fotoğraf ${currentIndex + 1}`}
-              className={`max-w-full max-h-[85vh] object-contain select-none transition-opacity duration-200 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-              draggable={false}
+            // Progressive image loading: medium -> large -> original
+            <ProgressiveLightboxImage
+              key={currentMedia.id}
+              item={currentMedia}
               onLoad={() => setImageLoaded(true)}
             />
           )}
