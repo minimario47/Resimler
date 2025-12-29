@@ -82,14 +82,12 @@ export const IMAGE_PRESETS = {
 };
 
 /**
- * Generate optimized R2 URL with Cloudflare Image Resizing parameters
+ * Generate optimized R2 URL with resize parameters
  * 
- * For this to work with resizing, you need one of:
- * 1. Custom domain with Cloudflare Image Resizing enabled
- * 2. Cloudflare Worker for image transformation
- * 
- * If using pub-*.r2.dev URLs, the params will be ignored but URLs remain valid.
- * The strategy is to have the infrastructure ready for when resizing is enabled.
+ * Works with:
+ * 1. Cloudflare Worker (uses ?w=WIDTH&q=QUALITY params)
+ * 2. Custom domain with Image Resizing (uses /cdn-cgi/image/ format)
+ * 3. Direct R2.dev URLs (params included but won't resize - still works for caching)
  */
 export function getOptimizedUrl(
   baseUrl: string,
@@ -99,22 +97,29 @@ export function getOptimizedUrl(
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   const originalUrl = `${cleanBaseUrl}/${key}`;
   
-  // Check if using a custom domain (not r2.dev) which supports Image Resizing
-  const isCustomDomain = !cleanBaseUrl.includes('.r2.dev');
+  // Check if using workers.dev (our image resizer worker)
+  const isWorkerUrl = cleanBaseUrl.includes('.workers.dev');
+  
+  // Check if using a custom domain (not r2.dev and not workers.dev)
+  const isCustomDomain = !cleanBaseUrl.includes('.r2.dev') && !isWorkerUrl;
   
   if (isCustomDomain) {
-    // Use Cloudflare Image Resizing URL format
+    // Use Cloudflare Image Resizing URL format for custom domains
     // Format: /cdn-cgi/image/OPTIONS/IMAGE_URL
     const options = `w=${preset.width},q=${preset.quality},fit=${preset.fit || 'cover'},f=auto`;
     return `${cleanBaseUrl}/cdn-cgi/image/${options}/${key}`;
   }
   
-  // For r2.dev URLs, append query params as hints for future compatibility
-  // These won't resize now but document intent and work if Worker is added
+  // For Workers and r2.dev URLs, use query params
+  // Workers will resize, r2.dev will ignore but URL still works
   const params = new URLSearchParams({
     w: preset.width.toString(),
     q: preset.quality.toString(),
   });
+  
+  if (preset.fit) {
+    params.set('fit', preset.fit);
+  }
   
   return `${originalUrl}?${params.toString()}`;
 }
