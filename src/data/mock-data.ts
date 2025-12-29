@@ -1,12 +1,20 @@
 import { Category } from '@/types';
 import { getCategoryCoverImage, getCategoryFeaturedThumbnails } from '@/lib/category-images';
 
-// Google Drive folder IDs for each category
+// Category IDs (matching R2 folder structure)
+export const CATEGORY_IDS = {
+  'dugunden-once': 'dugunden-once',
+  'kina-gecesi': 'kina-gecesi',
+  'dugun': 'dugun',
+};
+
+// Legacy: Google Drive folder IDs (used only by migration script)
+// These are no longer used for photo display - all photos served from R2
 export const DRIVE_FOLDERS = {
   'dugunden-once': '147X9FoyAczw0zvSe2vS7SuZLhr7VLate',
   'kina-gecesi': '1JeSgvgoyDTWmWZjLgXFgRKaUPqCrko_U',
   'dugun': '1ZzbzNkvAbbFt41AanPlgWYMyVUJmrvhP',
-  'featured': '1qMY0PlH_kTGtiW5hvQFCCjlGu1n2e9tW', // Öne Çıkanlar folder
+  'featured': '1qMY0PlH_kTGtiW5hvQFCCjlGu1n2e9tW',
 };
 
 export const categories: Category[] = [
@@ -16,13 +24,9 @@ export const categories: Category[] = [
     slug: 'dugunden-once',
     description: 'Hazırlıklar, gelin alayı ve özel anlar',
     date_range: '24-25 Aralık 2025',
-    cover_image: getCategoryCoverImage(
-      'dugunden-once',
-      'https://drive.google.com/thumbnail?id=1KKtFekFxbUQEeLsjVAkzqas8SSvNeNu4&sz=w800'
-    ),
+    cover_image: getCategoryCoverImage('dugunden-once'),
     media_count: 0,
     featured_thumbnails: getCategoryFeaturedThumbnails('dugunden-once', 3),
-    drive_folder_id: DRIVE_FOLDERS['dugunden-once'],
   },
   {
     id: 'kina-gecesi',
@@ -30,13 +34,9 @@ export const categories: Category[] = [
     slug: 'kina-gecesi',
     description: 'Geleneksel kına töreni ve eğlence',
     date_range: '26 Aralık 2025',
-    cover_image: getCategoryCoverImage(
-      'kina-gecesi',
-      'https://drive.google.com/thumbnail?id=1JeSgvgoyDTWmWZjLgXFgRKaUPqCrko_U&sz=w800'
-    ),
+    cover_image: getCategoryCoverImage('kina-gecesi'),
     media_count: 0,
     featured_thumbnails: getCategoryFeaturedThumbnails('kina-gecesi', 3),
-    drive_folder_id: DRIVE_FOLDERS['kina-gecesi'],
   },
   {
     id: 'dugun',
@@ -44,13 +44,9 @@ export const categories: Category[] = [
     slug: 'dugun',
     description: 'Nikah ve düğün töreni',
     date_range: '27 Aralık 2025',
-    cover_image: getCategoryCoverImage(
-      'dugun',
-      'https://drive.google.com/thumbnail?id=1ZzbzNkvAbbFt41AanPlgWYMyVUJmrvhP&sz=w800'
-    ),
+    cover_image: getCategoryCoverImage('dugun'),
     media_count: 0,
     featured_thumbnails: getCategoryFeaturedThumbnails('dugun', 3),
-    drive_folder_id: DRIVE_FOLDERS['dugun'],
   },
 ];
 

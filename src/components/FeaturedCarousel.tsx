@@ -15,6 +15,20 @@ interface FeaturedCarouselProps {
   images: FeaturedImage[];
 }
 
+// Worker URL for optimized images
+const WORKER_URL = 'https://wedding-photos.xaco47.workers.dev';
+
+// Extract file key from thumbnail URL
+function getFileKey(thumbnailUrl: string): string {
+  // URL format: https://wedding-photos.xaco47.workers.dev/category/file.jpg?w=800&q=75
+  try {
+    const url = new URL(thumbnailUrl);
+    return url.pathname.substring(1); // Remove leading /
+  } catch {
+    return '';
+  }
+}
+
 export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -28,28 +42,33 @@ export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
     });
   };
 
-  // Convert to MediaItem for lightbox
-  const mediaItems: MediaItem[] = images.map((img, index) => ({
-    id: img.id,
-    title: `Öne Çıkan ${index + 1}`,
-    description: 'Özel anlardan',
-    media_type: 'photo',
-    created_at: '2025-12-25',
-    source: 'google_drive',
-    thumbnails: {
-      small: `https://drive.google.com/thumbnail?id=${img.id}&sz=w200`,
-      medium: `https://drive.google.com/thumbnail?id=${img.id}&sz=w400`,
-      large: `https://drive.google.com/thumbnail?id=${img.id}&sz=w1600`,
-    },
-    original_url: `https://drive.google.com/uc?export=download&id=${img.id}`,
-    width: 1920,
-    height: 1280,
-    tags: ['featured'],
-    is_public: true,
-    featured: true,
-    favorites_count: 0,
-    category_id: 'featured',
-  }));
+  // Convert to MediaItem for lightbox - using R2/Worker URLs
+  const mediaItems: MediaItem[] = images.map((img, index) => {
+    const fileKey = getFileKey(img.thumbnailUrl);
+    
+    return {
+      id: img.id,
+      title: `Öne Çıkan ${index + 1}`,
+      description: 'Özel anlardan',
+      media_type: 'photo',
+      created_at: '2025-12-25',
+      source: 'local',
+      thumbnails: {
+        placeholder: `${WORKER_URL}/${fileKey}?w=20&q=20`,
+        small: `${WORKER_URL}/${fileKey}?w=200&q=60`,
+        medium: `${WORKER_URL}/${fileKey}?w=400&q=75`,
+        large: `${WORKER_URL}/${fileKey}?w=800&q=80`,
+      },
+      original_url: `${WORKER_URL}/${fileKey}`,
+      width: 1920,
+      height: 1280,
+      tags: ['featured'],
+      is_public: true,
+      featured: true,
+      favorites_count: 0,
+      category_id: 'featured',
+    };
+  });
 
   return (
     <section className="py-8 md:py-12">

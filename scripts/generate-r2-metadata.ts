@@ -10,9 +10,11 @@
  */
 
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { DRIVE_FOLDERS } from '../src/data/mock-data';
+import { CATEGORY_IDS } from '../src/data/mock-data';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Use CATEGORY_IDS for listing R2 files
 
 interface R2FileMetadata {
   id: string;
@@ -81,12 +83,7 @@ async function generateMetadata() {
   const baseUrl = publicUrl.replace(/\/$/, '');
 
   // Process each category
-  for (const [categoryId, folderId] of Object.entries(DRIVE_FOLDERS)) {
-    if (!folderId) {
-      console.log(`⏭️  Skipping ${categoryId} (no folder ID)`);
-      continue;
-    }
-
+  for (const categoryId of Object.keys(CATEGORY_IDS)) {
     console.log(`📁 Processing category: ${categoryId}`);
 
     try {

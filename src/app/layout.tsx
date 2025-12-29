@@ -49,13 +49,11 @@ export default function RootLayout({
   return (
     <html lang="tr" dir="ltr">
       <head>
-        {/* Preconnect to R2 for faster image loading */}
+        {/* Preconnect to Cloudflare Worker for faster image loading */}
+        <link rel="preconnect" href="https://wedding-photos.xaco47.workers.dev" />
+        <link rel="dns-prefetch" href="https://wedding-photos.xaco47.workers.dev" />
+        {/* Preconnect to R2 storage (used by Worker) */}
         <link rel="preconnect" href="https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev" />
-        <link rel="dns-prefetch" href="https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev" />
-        {/* Preconnect to Google Drive as fallback */}
-        <link rel="preconnect" href="https://drive.google.com" />
-        <link rel="preconnect" href="https://lh3.googleusercontent.com" />
-        <link rel="dns-prefetch" href="https://api.allorigins.win" />
       </head>
       <body
         className={`${playfair.variable} ${inter.variable} antialiased min-h-screen`}

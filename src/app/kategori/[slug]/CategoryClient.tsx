@@ -1,24 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
 import Header from '@/components/Header';
-import DriveGallery from '@/components/DriveGallery';
 import R2Gallery from '@/components/R2Gallery';
 import Footer from '@/components/Footer';
 import { Category } from '@/types';
-import { getR2Config } from '@/lib/r2-storage';
 
 interface CategoryClientProps {
   category: Category;
 }
 
 export default function CategoryClient({ category }: CategoryClientProps) {
-  // Check if R2 is configured (memoized to avoid recalculating on each render)
-  const useR2 = useMemo(() => {
-    const r2Config = getR2Config();
-    return r2Config !== null;
-  }, []);
-
   // Extract date from date_range for the photos
   const categoryDate = category.date_range.includes('24') ? '2025-12-24' :
                        category.date_range.includes('25') ? '2025-12-25' :
@@ -38,9 +29,7 @@ export default function CategoryClient({ category }: CategoryClientProps) {
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         {/* Fallback background color */}
-        <div className="absolute inset-0 bg-slate/5" />
-        {/* Loading placeholder */}
-        <div className="absolute inset-0 skeleton" />
+        <div className="absolute inset-0 bg-slate/5 -z-10" />
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
           <div className="max-w-[1200px] mx-auto">
             <h1 className="font-serif text-2xl md:text-3xl font-bold text-white">
@@ -56,26 +45,13 @@ export default function CategoryClient({ category }: CategoryClientProps) {
         </div>
       </div>
 
-      {/* Content area */}
+      {/* Content area - using R2/Cloudflare Worker */}
       <div className="max-w-[1200px] mx-auto px-4 py-6">
-        {useR2 ? (
-          <R2Gallery
-            categoryId={category.id}
-            categoryName={category.name}
-            categoryDate={categoryDate}
-          />
-        ) : category.drive_folder_id ? (
-          <DriveGallery
-            folderId={category.drive_folder_id}
-            categoryId={category.id}
-            categoryName={category.name}
-            categoryDate={categoryDate}
-          />
-        ) : (
-          <div className="text-center py-20">
-            <p className="text-slate/60">Bu kategori için fotoğraflar yakında eklenecek.</p>
-          </div>
-        )}
+        <R2Gallery
+          categoryId={category.id}
+          categoryName={category.name}
+          categoryDate={categoryDate}
+        />
       </div>
 
       <Footer />
