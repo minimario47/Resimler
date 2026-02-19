@@ -1,6 +1,6 @@
 1:"$Sreact.fragment"
-2:I[1474,["177","static/chunks/app/layout-3c443f7cbf7e7bbe.js"],"default"]
+2:I[1474,["177","static/chunks/app/layout-2f5c759f0ef29e9a.js"],"default"]
 3:I[7121,[],""]
 4:I[4581,[],""]
-:HL["/Resimler/_next/static/css/62ecf7db5661b3a0.css","style"]
-0:{"buildId":"jt8t_PbTaIKXDIfgsN2Qm","rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/Resimler/_next/static/css/62ecf7db5661b3a0.css","precedence":"next"}]],["$","html",null,{"lang":"tr","dir":"ltr","children":[["$","head",null,{"children":[["$","link",null,{"rel":"preconnect","href":"https://wedding-photos.xaco47.workers.dev"}],["$","link",null,{"rel":"dns-prefetch","href":"https://wedding-photos.xaco47.workers.dev"}],["$","link",null,{"rel":"preconnect","href":"https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev"}]]}],["$","body",null,{"className":"__variable_a8fe90 __variable_e88793 antialiased min-h-screen","children":[["$","$L2",null,{}],["$","$L3",null,{"parallelRouterKey":"children","template":["$","$L4",null,{}]}]]}]]}]]}],"loading":null,"isPartial":false}
+:HL["/Resimler/_next/static/css/655f0038f2b35828.css","style"]
+0:{"buildId":"aedRDozuSa7xuaJRhhN-0","rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/Resimler/_next/static/css/655f0038f2b35828.css","precedence":"next"}]],["$","html",null,{"lang":"tr","dir":"ltr","children":[["$","head",null,{"children":[["$","link",null,{"rel":"preconnect","href":"https://wedding-photos.xaco47.workers.dev"}],["$","link",null,{"rel":"dns-prefetch","href":"https://wedding-photos.xaco47.workers.dev"}],["$","link",null,{"rel":"preconnect","href":"https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev"}]]}],["$","body",null,{"className":"antialiased min-h-screen","children":[["$","$L2",null,{}],["$","$L3",null,{"parallelRouterKey":"children","template":["$","$L4",null,{}]}]]}]]}]]}],"loading":null,"isPartial":false}
