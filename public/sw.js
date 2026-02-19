@@ -1,4 +1,9 @@
 // Service Worker for Wedding Archive - Optimized for Cloudflare R2
+// Resolve GitHub Pages base path from SW registration URL
+const swUrl = new URL(self.location.href);
+const basePathParam = swUrl.searchParams.get('basePath') || '';
+const BASE_PATH = basePathParam.replace(/\/$/, '');
+
 const CACHE_NAME = 'wedding-archive-v2';
 const RUNTIME_CACHE = 'runtime-cache-v2';
 const IMAGE_CACHE = 'image-cache-v2';
@@ -8,8 +13,8 @@ const MAX_CACHED_IMAGES = 500;
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
+  BASE_PATH ? `${BASE_PATH}/` : '/',
+  BASE_PATH ? `${BASE_PATH}/index.html` : '/index.html',
 ];
 
 // Install event - precache essential assets
@@ -197,7 +202,11 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch(() => {
-            return caches.match(request);
+            return caches.match(request).then((cached) => {
+              if (cached) return cached;
+              const fallbackPath = BASE_PATH ? `${BASE_PATH}/index.html` : '/index.html';
+              return caches.match(fallbackPath);
+            });
           })
       );
       return;
