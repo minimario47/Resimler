@@ -34,10 +34,15 @@ export default function R2Gallery({ categoryId, categoryName, categoryDate = '20
   const currentPage = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
 
   const setPage = useCallback(
-    (page: number) => {
+    (page: number, mode: 'push' | 'replace' = 'push') => {
       const params = new URLSearchParams(searchParams.toString());
       params.set('page', page.toString());
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      const href = `${pathname}?${params.toString()}`;
+      if (mode === 'replace') {
+        router.replace(href, { scroll: false });
+        return;
+      }
+      router.push(href, { scroll: false });
     },
     [pathname, router, searchParams]
   );
@@ -145,9 +150,16 @@ export default function R2Gallery({ categoryId, categoryName, categoryDate = '20
 
   useEffect(() => {
     if (currentPage !== safePage) {
-      setPage(safePage);
+      setPage(safePage, 'replace');
     }
   }, [currentPage, safePage, setPage]);
+
+  useEffect(() => {
+    if (safePage !== 1) {
+      setPage(1, 'replace');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOption]);
 
   const paginatedMedia = useMemo(() => {
     const start = (safePage - 1) * ITEMS_PER_PAGE;

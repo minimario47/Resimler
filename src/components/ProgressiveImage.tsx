@@ -77,13 +77,17 @@ function ProgressiveImageComponent({
   }, [onClick]);
 
   const aspectRatio = useMemo(() => {
-    return width && height ? `${width} / ${height}` : undefined;
+    if (typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0) {
+      return `${width} / ${height}`;
+    }
+    // Fallback ratio prevents masonry cards from collapsing while image bytes stream in.
+    return '3 / 4';
   }, [width, height]);
 
   return (
     <div
       ref={imgRef}
-      className={`relative overflow-hidden bg-slate-900/10 ${className}`}
+      className={`relative overflow-hidden bg-slate-900/10 min-h-[180px] ${className}`}
       style={{ aspectRatio }}
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
