@@ -6,6 +6,7 @@ import Hero from '@/components/Hero';
 import FeaturedCarousel from '@/components/FeaturedCarousel';
 import CategoryTiles from '@/components/CategoryTiles';
 import Footer from '@/components/Footer';
+import VideoShowcase from '@/components/VideoShowcase';
 import { categories } from '@/data/mock-data';
 import { checkCacheVersion } from '@/lib/cache';
 import { getHeroImage, getFeaturedImages } from '@/lib/category-images';
@@ -37,6 +38,7 @@ export default function Home() {
           <FeaturedCarousel images={featuredImages} />
         )}
         <CategoryTiles categories={categories} />
+        <VideoShowcase />
       </div>
 
       <Footer />
