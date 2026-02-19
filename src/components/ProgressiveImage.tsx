@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, memo, useMemo, type KeyboardEvent } from 'react';
 
 interface ProgressiveImageProps {
   src: string;
@@ -76,6 +76,13 @@ function ProgressiveImageComponent({
     onClick?.();
   }, [onClick]);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  }, [handleClick]);
+
   const aspectRatio = useMemo(() => {
     if (typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0) {
       return `${width} / ${height}`;
@@ -93,7 +100,7 @@ function ProgressiveImageComponent({
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => e.key === 'Enter' && handleClick() : undefined}
+      onKeyDown={onClick ? handleKeyDown : undefined}
     >
       {thumbnailSrc && (
         // eslint-disable-next-line @next/next/no-img-element
