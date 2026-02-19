@@ -10,3 +10,5 @@ export { default as DriveGallery } from './DriveGallery';
 export { default as R2Gallery } from './R2Gallery';
 export { ProgressiveImage } from './ProgressiveImage';
 export { default as ServiceWorkerRegistration } from './ServiceWorkerRegistration';
+
+export { default as VideoShowcase } from './VideoShowcase';
