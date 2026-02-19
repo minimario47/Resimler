@@ -30,6 +30,86 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
   const [isRefreshing, setIsRefreshing] = useState(false);
   const hasFetched = useRef(false);
 
+  const parseImagesFromHtml = useCallback((html: string): DriveImage[] => {
+    const images: DriveImage[] = [];
+
+    // Multiple regex patterns for different Drive HTML formats
+    const patterns = [
+      /id="entry-([a-zA-Z0-9_-]+)"[\s\S]*?flip-entry-title">([^<]+)</g,
+      /data-id="([a-zA-Z0-9_-]+)"[\s\S]*?title="([^"]+)"/g,
+    ];
+
+    for (const regex of patterns) {
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        const fileId = match[1];
+        const fileName = match[2];
+
+        // Validate file ID length and only include image files
+        if (fileId.length > 20 && /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName)) {
+          // Avoid duplicates
+          if (!images.find(img => img.id === fileId)) {
+            images.push({
+              id: fileId,
+              name: fileName,
+              thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
+            });
+          }
+        }
+      }
+    }
+
+    return images;
+  }, []);
+
+  const fetchFromNetwork = useCallback(async (cacheKey: string, isBackground: boolean) => {
+    try {
+      // Try multiple proxies for reliability
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
+        `https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
+      ];
+
+      let html = '';
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl);
+          if (response.ok) {
+            html = await response.text();
+            if (html && html.length > 100) {
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!html || html.length < 100) {
+        throw new Error('All proxies failed');
+      }
+
+      // Parse images from HTML
+      const extractedImages = parseImagesFromHtml(html);
+
+      // Cache the results for 5 minutes
+      setInCache(cacheKey, extractedImages, 5 * 60 * 1000);
+
+      setImages(extractedImages);
+    } catch (proxyError) {
+      console.error('Fetch failed:', proxyError);
+      // Only show error if not a background refresh and no cached data
+      if (!isBackground) {
+        setError('embed');
+      }
+    } finally {
+      if (!isBackground) {
+        setLoading(false);
+      }
+      setIsRefreshing(false);
+    }
+  }, [folderId, parseImagesFromHtml]);
+
   const fetchImages = useCallback(async (forceRefresh = false) => {
     if (!folderId) {
       setLoading(false);
@@ -62,89 +142,7 @@ export default function DriveGallery({ folderId, categoryId, categoryName, categ
     setError(null);
 
     await fetchFromNetwork(cacheKey, forceRefresh);
-  }, [folderId]);
-
-  const fetchFromNetwork = async (cacheKey: string, isBackground: boolean) => {
-    try {
-      // Try multiple proxies for reliability
-      const proxies = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
-        `https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${folderId}`)}`,
-      ];
-
-      let html = '';
-      for (const proxyUrl of proxies) {
-        try {
-          const response = await fetch(proxyUrl);
-          if (response.ok) {
-            html = await response.text();
-            if (html && html.length > 100) {
-              break;
-            }
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      if (!html || html.length < 100) {
-        throw new Error('All proxies failed');
-      }
-
-      // Parse images from HTML
-      const extractedImages = parseImagesFromHtml(html);
-      
-      // Cache the results for 5 minutes
-      setInCache(cacheKey, extractedImages, 5 * 60 * 1000);
-      
-      setImages(extractedImages);
-      
-    } catch (proxyError) {
-      console.error('Fetch failed:', proxyError);
-      // Only show error if not a background refresh and no cached data
-      if (!isBackground) {
-        setError('embed');
-      }
-    } finally {
-      if (!isBackground) {
-        setLoading(false);
-      }
-      setIsRefreshing(false);
-    }
-  };
-
-  // Parse images from embedded folder HTML
-  function parseImagesFromHtml(html: string): DriveImage[] {
-    const images: DriveImage[] = [];
-    
-    // Multiple regex patterns for different Drive HTML formats
-    const patterns = [
-      /id="entry-([a-zA-Z0-9_-]+)"[\s\S]*?flip-entry-title">([^<]+)</g,
-      /data-id="([a-zA-Z0-9_-]+)"[\s\S]*?title="([^"]+)"/g,
-    ];
-    
-    for (const regex of patterns) {
-      let match;
-      while ((match = regex.exec(html)) !== null) {
-        const fileId = match[1];
-        const fileName = match[2];
-        
-        // Validate file ID length and only include image files
-        if (fileId.length > 20 && /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName)) {
-          // Avoid duplicates
-          if (!images.find(img => img.id === fileId)) {
-            images.push({
-              id: fileId,
-              name: fileName,
-              thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
-            });
-          }
-        }
-      }
-    }
-    
-    return images;
-  }
+  }, [fetchFromNetwork, folderId]);
 
   // Initial fetch - only once
   useEffect(() => {
