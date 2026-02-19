@@ -38,8 +38,8 @@ const GridItem = memo(function GridItem({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Prioritize first 4 images for faster perceived loading
-  const isPriority = index < 4;
+  // Prioritize first viewport rows for faster perceived loading
+  const isPriority = index < 8;
 
   return (
     <div
@@ -58,6 +58,7 @@ const GridItem = memo(function GridItem({
             src={item.original_url}
             thumbnailSrc={item.thumbnails.placeholder}
             mediumSrc={item.thumbnails.medium}
+            largeSrc={item.thumbnails.large}
             alt={item.title}
             width={item.width}
             height={item.height}
