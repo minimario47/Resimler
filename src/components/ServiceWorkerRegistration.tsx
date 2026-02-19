@@ -10,8 +10,10 @@ export default function ServiceWorkerRegistration() {
         ? `/${process.env.NEXT_PUBLIC_REPO_NAME}` 
         : '';
       
+      const swUrl = `${basePath}/sw.js?basePath=${encodeURIComponent(basePath)}`;
+
       navigator.serviceWorker
-        .register(`${basePath}/sw.js`)
+        .register(swUrl)
         .then((registration) => {
           console.log('SW registered:', registration.scope);
           
