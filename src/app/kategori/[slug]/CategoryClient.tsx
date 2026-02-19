@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Header from '@/components/Header';
 import R2Gallery from '@/components/R2Gallery';
 import Footer from '@/components/Footer';
@@ -47,11 +48,13 @@ export default function CategoryClient({ category }: CategoryClientProps) {
 
       {/* Content area - using R2/Cloudflare Worker */}
       <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <R2Gallery
-          categoryId={category.id}
-          categoryName={category.name}
-          categoryDate={categoryDate}
-        />
+        <Suspense fallback={<div className="py-10 text-center text-slate/60">Galeri hazırlanıyor...</div>}>
+          <R2Gallery
+            categoryId={category.id}
+            categoryName={category.name}
+            categoryDate={categoryDate}
+          />
+        </Suspense>
       </div>
 
       <Footer />
