@@ -22,13 +22,16 @@ export interface R2Config {
   publicUrl: string; // Custom domain or R2.dev subdomain
 }
 
+const DEFAULT_PUBLIC_IMAGE_URL = 'https://wedding-photos.xaco47.workers.dev';
+
 // Get R2 configuration from environment variables
 export function getR2Config(): R2Config | null {
+  const envPublicUrl =
+    (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || '').trim();
+  const publicUrl = envPublicUrl || DEFAULT_PUBLIC_IMAGE_URL;
+
   if (typeof window !== 'undefined') {
-    // Client-side: R2 config should be public (via env vars)
-    const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
-    if (!publicUrl) return null;
-    
+    // Client-side only needs a public URL to generate image endpoints.
     return {
       accountId: '', // Not needed client-side
       accessKeyId: '', // Not needed client-side
@@ -43,17 +46,13 @@ export function getR2Config(): R2Config | null {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   const bucketName = process.env.R2_BUCKET_NAME;
-  const publicUrl = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
-  
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
-    return null;
-  }
-  
+
+  // URL generation for gallery rendering only requires publicUrl.
   return {
-    accountId,
-    accessKeyId,
-    secretAccessKey,
-    bucketName,
+    accountId: accountId || '',
+    accessKeyId: accessKeyId || '',
+    secretAccessKey: secretAccessKey || '',
+    bucketName: bucketName || '',
     publicUrl,
   };
 }
@@ -70,6 +69,10 @@ export interface ImageSizePreset {
   width: number;
   quality: number;
   fit?: 'cover' | 'contain' | 'scale-down';
+}
+
+export function normalizeR2ImageKey(key: string): string {
+  return key.replace(/\.heic$/i, '.jpeg');
 }
 
 export const IMAGE_PRESETS = {
@@ -104,7 +107,8 @@ export function getOptimizedUrl(
   preset: ImageSizePreset
 ): string {
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-  const originalUrl = `${cleanBaseUrl}/${key}`;
+  const normalizedKey = normalizeR2ImageKey(key);
+  const originalUrl = `${cleanBaseUrl}/${normalizedKey}`;
   
   // Check if using workers.dev (our image resizer worker)
   const isWorkerUrl = cleanBaseUrl.includes('.workers.dev');
@@ -116,7 +120,7 @@ export function getOptimizedUrl(
     // Use Cloudflare Image Resizing URL format for custom domains
     // Format: /cdn-cgi/image/OPTIONS/IMAGE_URL
     const options = `w=${preset.width},q=${preset.quality},fit=${preset.fit || 'cover'},f=auto`;
-    return `${cleanBaseUrl}/cdn-cgi/image/${options}/${key}`;
+    return `${cleanBaseUrl}/cdn-cgi/image/${options}/${normalizedKey}`;
   }
   
   // For Workers and r2.dev URLs, use query params
@@ -156,18 +160,38 @@ export function getR2Urls(key: string, config?: R2Config): {
   }
   
   const baseUrl = r2Config.publicUrl.replace(/\/$/, '');
-  const originalUrl = `${baseUrl}/${key}`;
+  const normalizedKey = normalizeR2ImageKey(key);
+  const originalUrl = `${baseUrl}/${normalizedKey}`;
   
   return {
     thumbnail: {
-      placeholder: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.placeholder),
-      small: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.thumb),      // Very low quality for grid
-      medium: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.medium),    // Low quality for grid
-      large: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.preview),    // Preview for lightbox
+      placeholder: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.placeholder),
+      small: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.thumb),      // Very low quality for grid
+      medium: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.medium),    // Low quality for grid
+      large: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.preview),    // Preview for lightbox
     },
-    view: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.preview),       // Lightbox preview
-    download: getOptimizedUrl(baseUrl, key, IMAGE_PRESETS.full),      // Full quality
+    view: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.preview),       // Lightbox preview
+    download: getOptimizedUrl(baseUrl, normalizedKey, IMAGE_PRESETS.full),      // Full quality
     original: originalUrl,                                             // Original (unresized)
+  };
+}
+
+function normalizeR2FileEntry(file: R2File): R2File {
+  const normalizedKey = normalizeR2ImageKey(file.key);
+  if (normalizedKey === file.key) {
+    return file;
+  }
+
+  const normalizedName = file.name.replace(/\.heic$/i, '.jpeg');
+  const normalizedUrl = file.url.replace(/\.heic(\?|$)/i, '.jpeg$1');
+  const normalizedThumbnailUrl = file.thumbnailUrl.replace(/\.heic(\?|$)/i, '.jpeg$1');
+
+  return {
+    ...file,
+    key: normalizedKey,
+    name: normalizedName,
+    url: normalizedUrl,
+    thumbnailUrl: normalizedThumbnailUrl,
   };
 }
 
@@ -232,7 +256,7 @@ export async function fetchR2CategoryFiles(categoryId: string): Promise<R2File[]
     if (typedMetadata && typedMetadata.categories) {
       const category = typedMetadata.categories.find((cat) => cat.categoryId === categoryId);
       if (category && category.files) {
-        return category.files;
+        return category.files.map(normalizeR2FileEntry);
       }
     }
     

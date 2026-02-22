@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Lightbox from './Lightbox';
 import { MediaItem } from '@/types';
+import { normalizeR2ImageKey } from '@/lib/r2-storage';
 
 interface FeaturedImage {
   id: string;
@@ -19,14 +20,29 @@ interface FeaturedCarouselProps {
 // Worker URL for optimized images
 const WORKER_URL = 'https://wedding-photos.xaco47.workers.dev';
 
+function getInlinePlaceholder(label: string): string {
+  const safeLabel = label.replace(/</g, '').replace(/>/g, '').trim() || 'Foto';
+  const svg = `
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'>
+      <rect width='600' height='800' fill='#a8a29e'/>
+      <rect x='18' y='18' width='564' height='764' fill='none' stroke='#e7e5e4' stroke-width='2'/>
+      <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#1f2937' font-family='Georgia, serif' font-size='34'>
+        ${safeLabel}
+      </text>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 // Extract file key from thumbnail URL or use provided key
 function getFileKey(image: FeaturedImage): string {
-  if (image.key) return image.key;
+  if (image.key) return normalizeR2ImageKey(image.key);
   
   // Fallback: extract from URL
   try {
     const url = new URL(image.thumbnailUrl);
-    return url.pathname.substring(1); // Remove leading /
+    return normalizeR2ImageKey(url.pathname.substring(1)); // Remove leading /
   } catch {
     return '';
   }
@@ -113,15 +129,21 @@ export default function FeaturedCarousel({ images }: FeaturedCarouselProps) {
                 onClick={() => setSelectedIndex(index)}
                 className="block group text-left"
               >
-                <div className="relative w-[240px] md:w-[280px] aspect-[3/4] rounded-xl overflow-hidden shadow-lg">
+                <div className="relative w-[240px] md:w-[280px] aspect-[3/4] rounded-xl overflow-hidden shadow-lg bg-slate/5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={image.thumbnailUrl}
                     alt={image.name}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      target.src = getInlinePlaceholder(image.name);
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                 </div>
               </button>
             </div>

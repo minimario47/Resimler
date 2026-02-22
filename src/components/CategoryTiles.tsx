@@ -8,12 +8,27 @@ interface CategoryTilesProps {
   categories: Category[];
 }
 
+function getInlinePlaceholder(label: string): string {
+  const safeLabel = label.replace(/</g, '').replace(/>/g, '').trim() || 'Galeri';
+  const svg = `
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600'>
+      <rect width='800' height='600' fill='#a8a29e'/>
+      <rect x='24' y='24' width='752' height='552' fill='none' stroke='#e7e5e4' stroke-width='2'/>
+      <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#1f2937' font-family='Georgia, serif' font-size='42'>
+        ${safeLabel}
+      </text>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 export default function CategoryTiles({ categories }: CategoryTilesProps) {
   return (
     <section className="py-8 md:py-12 px-4">
       <div className="max-w-[1200px] mx-auto">
         <h2 className="font-serif text-xl md:text-2xl font-semibold mb-6">
-          Galeriler
+          Resimler
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -38,9 +53,9 @@ export default function CategoryTiles({ categories }: CategoryTilesProps) {
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                       onError={(e) => {
-                        // Fallback to placeholder if image fails to load
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/800x600?text=' + encodeURIComponent(category.name);
+                        target.onerror = null;
+                        target.src = getInlinePlaceholder(category.name);
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />

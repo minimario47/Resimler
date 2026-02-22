@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_R2_PUBLIC_URL: r2PublicUrl,
   },
+  // Acknowledge Turbopack (Next.js 16 default); webpack still used for build
+  turbopack: {},
   // Copy JSON files to output for static access
   webpack: (config, { isServer }) => {
     if (!isServer) {

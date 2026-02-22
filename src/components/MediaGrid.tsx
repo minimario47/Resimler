@@ -52,11 +52,10 @@ const GridItem = memo(function GridItem({
         tabIndex={0}
         aria-label={`${item.title} görüntüle`}
       >
-        {/* Progressive Image with blur-up loading */}
+        {/* Progressive image loading */}
         <div className="relative">
           <ProgressiveImage
             src={item.original_url}
-            thumbnailSrc={item.thumbnails.placeholder}
             mediumSrc={item.thumbnails.medium}
             largeSrc={item.thumbnails.large}
             alt={item.title}

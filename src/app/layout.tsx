@@ -38,7 +38,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://wedding-photos.xaco47.workers.dev" />
         <link rel="preconnect" href="https://pub-b58e3b0a4909459992b84bd69903e2b7.r2.dev" />
       </head>
-      <body className="antialiased min-h-screen">
+      <body suppressHydrationWarning className="antialiased min-h-screen">
         <ServiceWorkerRegistration />
         {children}
       </body>

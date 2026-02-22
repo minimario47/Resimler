@@ -14,11 +14,11 @@ interface HeaderProps {
   onBackClick?: () => void;
 }
 
-export default function Header({ 
-  transparent = false, 
-  showBack = false, 
+export default function Header({
+  transparent = false,
+  showBack = false,
   title,
-  onBackClick 
+  onBackClick
 }: HeaderProps) {
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -37,11 +37,10 @@ export default function Header({
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 safe-top ${
-          shouldBeSolid
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 safe-top ${shouldBeSolid
             ? 'bg-cream/95 backdrop-blur-md shadow-sm'
             : 'bg-transparent'
-        }`}
+          }`}
       >
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="flex items-center justify-between h-14 md:h-16">
@@ -64,7 +63,7 @@ export default function Header({
                   <Menu className="w-6 h-6" />
                 </button>
               )}
-              
+
               {title ? (
                 <span className="font-serif text-lg font-semibold truncate max-w-[200px]">
                   {title}
@@ -84,9 +83,8 @@ export default function Header({
                 <Link
                   key={cat.id}
                   href={`/kategori/${cat.slug}`}
-                  className={`text-sm font-medium hover:text-accent transition-colors ${
-                    shouldBeSolid ? 'text-slate' : 'text-white/90 hover:text-white'
-                  }`}
+                  className={`text-sm font-medium hover:text-accent transition-colors ${shouldBeSolid ? 'text-slate' : 'text-white/90 hover:text-white'
+                    }`}
                   aria-label={`${cat.name} sayfasına git`}
                 >
                   {cat.name}
@@ -98,9 +96,8 @@ export default function Header({
             <div className="flex items-center gap-1">
               <Link
                 href="/favoriler"
-                className={`p-2 rounded-full hover:bg-slate/10 transition-colors ${
-                  shouldBeSolid ? 'text-slate' : 'text-white'
-                }`}
+                className={`p-2 rounded-full hover:bg-slate/10 transition-colors ${shouldBeSolid ? 'text-slate' : 'text-white'
+                  }`}
                 aria-label="Favoriler"
               >
                 <Heart className="w-5 h-5" />
@@ -149,7 +146,7 @@ export default function Header({
                     Ana Sayfa
                   </Link>
                   <div className="pt-4 pb-2 px-4 text-xs text-slate/60 uppercase tracking-wide">
-                    Galeriler
+                    Resimler
                   </div>
                   {categories.map((cat) => (
                     <Link

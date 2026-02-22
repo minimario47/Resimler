@@ -24,10 +24,9 @@ interface LightboxProps {
  * Progressive Lightbox Image Component
  * 
  * Loading stages:
- * 1. Show blurred placeholder immediately
- * 2. Show medium quality (from grid cache) 
- * 3. Load preview quality (600px)
- * 4. Load full quality (1600px) - only in lightbox!
+ * 1. Start with medium quality (from grid cache)
+ * 2. Upgrade to preview quality (600px)
+ * 3. Upgrade to full quality (1600px) - only in lightbox
  */
 const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
   item,
@@ -36,35 +35,48 @@ const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
   item: MediaItem;
   onLoad: () => void;
 }) {
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string>(item.thumbnails.medium);
   const [loadingStage, setLoadingStage] = useState<'preview' | 'full' | 'done'>('preview');
   
   useEffect(() => {
     let cancelled = false;
+    let hasNotifiedLoad = false;
+    setLoadedSrc(item.thumbnails.medium);
+    setLoadingStage('preview');
     
-    // Stage 1: Show medium quality immediately (should be cached from grid)
+    // Stage 1: Ensure medium image is loaded first.
     const mediumImg = new Image();
     mediumImg.onload = () => {
       if (cancelled) return;
-      setLoadedSrc(item.thumbnails.medium);
-      onLoad();
+      if (!hasNotifiedLoad) {
+        onLoad();
+        hasNotifiedLoad = true;
+      }
+    };
+    mediumImg.onerror = () => {
+      if (cancelled) return;
+      setLoadedSrc(item.thumbnails.large);
     };
     mediumImg.src = item.thumbnails.medium;
     
-    // Stage 2: Load preview quality (larger, better)
+    // Stage 2: Load preview quality (larger, better).
     const previewImg = new Image();
     previewImg.onload = () => {
       if (cancelled) return;
-      setLoadedSrc(item.thumbnails.large); // large = preview quality
+      setLoadedSrc(item.thumbnails.large);
       setLoadingStage('full');
+      if (!hasNotifiedLoad) {
+        onLoad();
+        hasNotifiedLoad = true;
+      }
     };
     previewImg.src = item.thumbnails.large;
     
-    // Stage 3: Load full quality (only in lightbox!)
+    // Stage 3: Load full quality (only in lightbox).
     const fullImg = new Image();
     fullImg.onload = () => {
       if (cancelled) return;
-      setLoadedSrc(item.original_url); // Full quality
+      setLoadedSrc(item.original_url);
       setLoadingStage('done');
     };
     fullImg.src = item.original_url;
@@ -79,31 +91,17 @@ const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
 
   return (
     <>
-      {/* Blurred placeholder while loading */}
-      {!loadedSrc && item.thumbnails.placeholder && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.thumbnails.placeholder}
-          alt=""
-          aria-hidden="true"
-          className="max-w-full max-h-[85vh] object-contain blur-xl scale-105"
-          style={{ filter: 'blur(30px)' }}
-        />
-      )}
-      
       {/* Main image with progressive quality upgrade */}
-      {loadedSrc && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={loadedSrc}
-          alt={`Fotoğraf`}
-          className="max-w-full max-h-[85vh] object-contain select-none transition-all duration-300"
-          draggable={false}
-        />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={loadedSrc}
+        alt="Fotoğraf"
+        className="max-w-full max-h-[85vh] object-contain select-none transition-opacity duration-300"
+        draggable={false}
+      />
       
       {/* Loading indicator while full quality loads */}
-      {loadingStage !== 'done' && loadedSrc && (
+      {loadingStage !== 'done' && (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 rounded-full text-xs text-white/60 flex items-center gap-2">
           <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
           Yüksek kalite yükleniyor...

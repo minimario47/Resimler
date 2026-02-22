@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 
 interface ProgressiveImageProps {
   src: string;
-  thumbnailSrc?: string;
   mediumSrc?: string;
   largeSrc?: string;
   alt: string;
@@ -18,7 +17,6 @@ interface ProgressiveImageProps {
 
 function ProgressiveImageComponent({
   src,
-  thumbnailSrc,
   mediumSrc,
   largeSrc,
   alt,
@@ -94,32 +92,14 @@ function ProgressiveImageComponent({
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && handleClick() : undefined}
     >
-      {thumbnailSrc && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={thumbnailSrc}
-          alt=""
-          aria-hidden="true"
-          className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-500 ${
-            mediumLoaded ? 'opacity-0' : 'opacity-100'
-          }`}
-          style={{ filter: 'blur(16px)' }}
-          loading="eager"
-          decoding="async"
-          fetchPriority={priority ? 'high' : 'low'}
-        />
-      )}
-
       {shouldLoad && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={mediumTarget}
           alt={alt}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-            mediumLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="absolute inset-0 w-full h-full object-cover"
           loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
+          decoding="auto"
           fetchPriority={priority ? 'high' : 'auto'}
           onLoad={() => {
             setMediumLoaded(true);
@@ -127,7 +107,7 @@ function ProgressiveImageComponent({
           }}
           onError={() => {
             setHasError(true);
-            setMediumLoaded(Boolean(thumbnailSrc));
+            setMediumLoaded(false);
           }}
         />
       )}
@@ -154,7 +134,7 @@ function ProgressiveImageComponent({
         </div>
       )}
 
-      {hasError && !thumbnailSrc && (
+      {hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-800/20">
           <span className="text-xs text-white/50">Yüklenemedi</span>
         </div>
