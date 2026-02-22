@@ -4,9 +4,9 @@ const swUrl = new URL(self.location.href);
 const basePathParam = swUrl.searchParams.get('basePath') || '';
 const BASE_PATH = basePathParam.replace(/\/$/, '');
 
-const CACHE_NAME = 'wedding-archive-v2';
-const RUNTIME_CACHE = 'runtime-cache-v2';
-const IMAGE_CACHE = 'image-cache-v2';
+const CACHE_NAME = 'wedding-archive-v3';
+const RUNTIME_CACHE = 'runtime-cache-v3';
+const IMAGE_CACHE = 'image-cache-v3';
 
 // Max number of images to cache (prevent storage bloat)
 const MAX_CACHED_IMAGES = 500;
@@ -45,17 +45,25 @@ self.addEventListener('activate', (event) => {
 
 // Helper: Check if URL is an R2 image URL
 function isR2ImageUrl(url) {
-  return url.hostname.includes('.r2.dev') || 
-         url.hostname.includes('cloudflare') ||
-         (url.pathname.match(/\.(jpg|jpeg|png|gif|webp)$/i) && url.hostname.includes('pub-'));
+  const isImagePath = /\.(jpg|jpeg|png|gif|webp|heic|heif|avif)$/i.test(url.pathname);
+  const isWorkerHost = url.hostname.endsWith('.workers.dev');
+  const isR2Host = url.hostname.endsWith('.r2.dev');
+  return isImagePath && (isWorkerHost || isR2Host);
 }
 
 // Helper: Get cache key for R2 images (normalize URL params)
 function getImageCacheKey(url) {
-  // For R2 URLs with resize params, cache by base URL + size
+  // Keep quality/fit variants separate to avoid stale mismatches.
   const baseUrl = url.origin + url.pathname;
   const width = url.searchParams.get('w') || 'full';
-  return `${baseUrl}?w=${width}`;
+  const quality = url.searchParams.get('q') || 'default';
+  const fit = url.searchParams.get('fit') || 'default';
+  return `${baseUrl}?w=${width}&q=${quality}&fit=${fit}`;
+}
+
+function isCacheableImageResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  return response.ok && contentType.startsWith('image/');
 }
 
 // Helper: Limit image cache size
@@ -89,37 +97,42 @@ self.addEventListener('fetch', (event) => {
         const cachedResponse = await cache.match(cacheKey);
         
         if (cachedResponse) {
-          // Return cached version immediately
-          // Revalidate in background if cache is older than 1 hour
-          const cachedDate = cachedResponse.headers.get('sw-cached-date');
-          const isStale = cachedDate && (Date.now() - new Date(cachedDate).getTime() > 60 * 60 * 1000);
-          
-          if (isStale) {
-            // Background revalidation (don't block response)
-            fetch(request).then((response) => {
-              if (response.ok) {
-                const clonedResponse = response.clone();
-                const headers = new Headers(clonedResponse.headers);
-                headers.set('sw-cached-date', new Date().toISOString());
-                
-                return clonedResponse.blob().then((body) => {
-                  const cachedResp = new Response(body, {
-                    status: clonedResponse.status,
-                    statusText: clonedResponse.statusText,
-                    headers: headers
+          const cachedType = cachedResponse.headers.get('content-type') || '';
+          if (!cachedType.startsWith('image/')) {
+            await cache.delete(cacheKey);
+          } else {
+            // Return cached version immediately
+            // Revalidate in background if cache is older than 1 hour
+            const cachedDate = cachedResponse.headers.get('sw-cached-date');
+            const isStale = cachedDate && (Date.now() - new Date(cachedDate).getTime() > 60 * 60 * 1000);
+            
+            if (isStale) {
+              // Background revalidation (don't block response)
+              fetch(request).then((response) => {
+                if (isCacheableImageResponse(response)) {
+                  const clonedResponse = response.clone();
+                  const headers = new Headers(clonedResponse.headers);
+                  headers.set('sw-cached-date', new Date().toISOString());
+                  
+                  return clonedResponse.blob().then((body) => {
+                    const cachedResp = new Response(body, {
+                      status: clonedResponse.status,
+                      statusText: clonedResponse.statusText,
+                      headers: headers
+                    });
+                    cache.put(cacheKey, cachedResp);
                   });
-                  cache.put(cacheKey, cachedResp);
-                });
-              }
-            }).catch(() => {});
+                }
+              }).catch(() => {});
+            }
+            
+            return cachedResponse;
           }
-          
-          return cachedResponse;
         }
 
         // Not in cache - fetch from network
         return fetch(request).then((response) => {
-          if (response.ok) {
+          if (isCacheableImageResponse(response)) {
             // Clone and cache with timestamp
             const clonedResponse = response.clone();
             const headers = new Headers(clonedResponse.headers);
@@ -266,7 +279,7 @@ self.addEventListener('message', (event) => {
     caches.open(IMAGE_CACHE).then((cache) => {
       urls.forEach((url) => {
         fetch(url).then((response) => {
-          if (response.ok) {
+          if (isCacheableImageResponse(response)) {
             cache.put(url, response);
           }
         }).catch(() => {});
