@@ -57,7 +57,6 @@ const GridItem = memo(function GridItem({
           <ProgressiveImage
             src={item.original_url}
             mediumSrc={item.thumbnails.medium}
-            largeSrc={item.thumbnails.large}
             alt={item.title}
             width={item.width}
             height={item.height}
@@ -157,7 +156,7 @@ export default function MediaGrid({ media, gridSize = 'normal' }: MediaGridProps
       >
         {media.map((item, index) => (
           <GridItem
-            key={item.id}
+            key={`${item.id}-${item.original_url}-${index}`}
             item={item}
             index={index}
             onSelect={handleSelect}

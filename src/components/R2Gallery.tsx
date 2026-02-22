@@ -31,12 +31,20 @@ export default function R2Gallery({ categoryId, categoryName, categoryDate = '20
   const hasFetched = useRef(false);
 
   const pageFromQuery = Number(searchParams.get('page') || '1');
-  const currentPage = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
+  const initialPage = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
+  const [currentPage, setCurrentPage] = useState(initialPage);
+
+  useEffect(() => {
+    const nextPage = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
+    setCurrentPage(nextPage);
+  }, [pageFromQuery]);
 
   const setPage = useCallback(
     (page: number, mode: 'push' | 'replace' = 'push') => {
+      const safeTargetPage = Math.max(1, page);
+      setCurrentPage(safeTargetPage);
       const params = new URLSearchParams(searchParams.toString());
-      params.set('page', page.toString());
+      params.set('page', safeTargetPage.toString());
       const href = `${pathname}?${params.toString()}`;
       if (mode === 'replace') {
         router.replace(href, { scroll: false });
@@ -109,9 +117,15 @@ export default function R2Gallery({ categoryId, categoryName, categoryDate = '20
     const urls = getR2Urls(img.key);
     const heights = [1080, 1280, 1440, 1600, 1200];
     const randomHeight = heights[index % heights.length];
+    const normalizedKey = img.key?.trim() || '';
+    const stableId = normalizedKey
+      ? `r2:${normalizedKey}`
+      : img.id?.trim()
+      ? `r2:id:${img.id.trim()}-${index}`
+      : `r2:${categoryId}:${index}`;
 
     return {
-      id: img.id,
+      id: stableId,
       title: img.name.replace(/\.[^.]+$/, ''),
       description: `${categoryName}`,
       media_type: 'photo',

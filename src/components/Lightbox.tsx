@@ -41,8 +41,6 @@ const ProgressiveLightboxImage = memo(function ProgressiveLightboxImage({
   useEffect(() => {
     let cancelled = false;
     let hasNotifiedLoad = false;
-    setLoadedSrc(item.thumbnails.medium);
-    setLoadingStage('preview');
     
     // Stage 1: Ensure medium image is loaded first.
     const mediumImg = new Image();
